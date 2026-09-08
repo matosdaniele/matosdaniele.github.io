@@ -42,78 +42,89 @@
 
     <section class="section" id="trilhas">
       <h2>As quatro trilhas</h2>
-      <p class="section-intro">Separei o conteúdo em quatro caminhos. Os tutoriais entram aos poucos; o mapa já está aqui para você se orientar.</p>
+      <p class="section-intro">Separei o conteúdo em quatro caminhos. Enquanto uma trilha não tiver tutorial publicado, ela fica indisponível aqui — o mapa continua visível para você se orientar.</p>
       <ol class="tracks">
         <li>
-          <a class="track-card" href="trilhas/fundamentos.html">
-            <span class="track-num" aria-hidden="true">01</span>
-            <span>
-              <h3>Fundamentos de Dados</h3>
-              <p>Conceitos de modelagem, o que é um banco de dados, arquitetura e a diferença entre OLTP e OLAP.</p>
-              <ul class="topics">
-                <li>Modelagem</li>
-                <li>Banco de dados</li>
-                <li>Arquitetura</li>
-                <li>OLTP × OLAP</li>
-              </ul>
-            </span>
-          </a>
+          <article class="track-card track-card--unavailable" aria-describedby="trilha-01-status">
+            <div class="track-card-inner">
+              <span class="track-num" aria-hidden="true">01</span>
+              <span>
+                <h3>Fundamentos de Dados</h3>
+                <p>Conceitos de estrutura de dados.</p>
+                <ul class="topics">
+                  <li>Tipo de dados</li>
+                  <li>Arquitetura</li>
+                </ul>
+              </span>
+            </div>
+            <p class="track-status" id="trilha-01-status">Em breve — nenhum tutorial publicado ainda</p>
+          </article>
         </li>
         <li>
-          <a class="track-card" href="trilhas/banco-de-dados.html">
-            <span class="track-num" aria-hidden="true">02</span>
-            <span>
-              <h3>Banco de Dados (SQL &amp; NoSQL)</h3>
-              <p>Consultas práticas, otimização, administração de PostgreSQL, MySQL e MongoDB, e ETL.</p>
-              <ul class="topics">
-                <li>SELECT, JOINs, GROUP BY</li>
-                <li>Otimização</li>
-                <li>PostgreSQL · MySQL · MongoDB</li>
-                <li>ETL</li>
-              </ul>
-            </span>
-          </a>
+          <article class="track-card track-card--unavailable" aria-describedby="trilha-02-status">
+            <div class="track-card-inner">
+              <span class="track-num" aria-hidden="true">02</span>
+              <span>
+                <h3>Banco de Dados (SQL &amp; NoSQL)</h3>
+                <p>Consultas práticas, otimização, administração.</p>
+                <ul class="topics">
+                  <li>SELECT, JOINs, GROUP BY</li>
+                  <li>Otimização</li>
+                  <li>MSSQL · MongoDB</li>
+                  <li>ETL</li>
+                </ul>
+              </span>
+            </div>
+            <p class="track-status" id="trilha-02-status">Em breve — nenhum tutorial publicado ainda</p>
+          </article>
         </li>
         <li>
-          <a class="track-card" href="trilhas/analise-e-visualizacao.html">
-            <span class="track-num" aria-hidden="true">03</span>
-            <span>
-              <h3>Análise e Visualização</h3>
-              <p>Ferramentas de BI, dashboards, métricas de negócio e storytelling com dados.</p>
-              <ul class="topics">
-                <li>Power BI</li>
-                <li>Tableau</li>
-                <li>Dashboards</li>
-                <li>Storytelling</li>
-              </ul>
-            </span>
-          </a>
+          <article class="track-card track-card--unavailable" aria-describedby="trilha-03-status">
+            <div class="track-card-inner">
+              <span class="track-num" aria-hidden="true">03</span>
+              <span>
+                <h3>Análise e Visualização</h3>
+                <p>Ferramentas de BI, dashboards, métricas de negócio e storytelling com dados.</p>
+                <ul class="topics">
+                  <li>Power BI</li>
+                  <li>Dashboards</li>
+                  <li>Storytelling</li>
+                </ul>
+              </span>
+            </div>
+            <p class="track-status" id="trilha-03-status">Em breve — nenhum tutorial publicado ainda</p>
+          </article>
         </li>
         <li>
-          <a class="track-card" href="trilhas/programacao.html">
-            <span class="track-num" aria-hidden="true">04</span>
-            <span>
-              <h3>Programação para Dados</h3>
-              <p>Tutoriais práticos com Python (Pandas, NumPy) ou R para manipulação e limpeza de dados.</p>
-              <ul class="topics">
-                <li>Python</li>
-                <li>Pandas · NumPy</li>
-                <li>R</li>
-                <li>Limpeza de dados</li>
-              </ul>
-            </span>
-          </a>
+          <article class="track-card track-card--unavailable" aria-describedby="trilha-04-status">
+            <div class="track-card-inner">
+              <span class="track-num" aria-hidden="true">04</span>
+              <span>
+                <h3>Programação para Dados</h3>
+                <p>Tutoriais práticos com Python (Pandas, NumPy) ou R para manipulação e limpeza de dados.</p>
+                <ul class="topics">
+                  <li>Python</li>
+                  <li>Git</li>
+                  <li>Limpeza de dados</li>
+                </ul>
+              </span>
+            </div>
+            <p class="track-status" id="trilha-04-status">Em breve — nenhum tutorial publicado ainda</p>
+          </article>
         </li>
       </ol>
     </section>
 
     <section class="section about-block" aria-labelledby="sobre-titulo">
-      <div>
-        <h2 id="sobre-titulo">Quem escreve</h2>
-        <p>Sou analista de dados/BI e DBA SQL Server. Trabalho com T-SQL, modelagem, ETL e painéis — e uso este espaço para registrar o que a prática ensina.</p>
-        <p><a href="sobre.html">Ler a página Sobre</a></p>
-      </div>
-      <p class="note">Se você está começando, eu sugiro esta ordem: Fundamentos → SQL &amp; NoSQL → Programação → Análise. Quem já vive no banco pode entrar direto na trilha 02 ou 03.</p>
+      <h2 id="sobre-titulo">Quem escreve</h2>
+      <p>Sou analista de dados/BI e DBA SQL Server. Trabalho com T-SQL, modelagem, ETL e painéis, e uso este espaço para registrar o que a prática ensina.</p>
+      <p>Penso que no cenário atual, a informação se tornou um dos ativos mais valiosos para o sucesso e o crescimento de qualquer organização. No entanto, para que esses dados gerem valor real e insights estratégicos, não basta apenas coletá-los; é preciso saber como organizá-los e manipulá-los de forma eficiente. No clássico livro <cite>Sistema de Banco de Dados</cite>, os autores Abraham Silberschatz, Henry F. Korth e S. Sudarshan resumem com precisão essa engrenagem fundamental:</p>
+      <blockquote class="note">
+        <p>“A gestão dos dados envolve tanto a definição de estruturas para o armazenamento de informações quanto os mecanismos que preveem a manipulação da informação.”</p>
+        <footer>— Abraham Silberschatz, Henry F. Korth e S. Sudarshan no livro <cite>Sistema de Banco de Dados</cite>.</footer>
+      </blockquote>
+      <p>A partir desse conceito, entendemos que o gerenciamento de dados vai muito além de um aspecto técnico...</p>
+      <p><a href="sobre.html">Ler a página Sobre</a></p>
     </section>
   </main>
 

@@ -16,6 +16,21 @@
     }, 50);
   }
 
+  document.querySelectorAll(".code-block").forEach(function (block) {
+    var source = block.querySelector(".code-source");
+    var gutter = block.querySelector(".code-gutter");
+    if (!source || !gutter) {
+      return;
+    }
+    var text = source.innerText.replace(/\n$/, "");
+    var count = text ? text.split("\n").length : 0;
+    var lines = [];
+    for (var i = 1; i <= count; i += 1) {
+      lines.push(String(i));
+    }
+    gutter.textContent = lines.join("\n");
+  });
+
   document.querySelectorAll(".copy-code").forEach(function (button) {
     button.addEventListener("click", function () {
       var block = button.closest(".code-block");

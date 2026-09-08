@@ -277,19 +277,60 @@ main {
 }
 
 .track-card {
-  display: grid;
-  grid-template-columns: 4.5rem 1fr;
-  gap: 0.25rem 1.25rem;
+  position: relative;
+  display: block;
   padding: 1.35rem 1.4rem;
   background: var(--paper-2);
   border: 1px solid var(--rule);
   border-radius: 0.75rem;
   text-decoration: none;
   color: inherit;
+  overflow: hidden;
 }
 
-.track-card:hover {
+.track-card-inner {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: 0.25rem 1.25rem;
+}
+
+a.track-card:hover {
   border-color: var(--accent);
+}
+
+.track-card--unavailable {
+  cursor: default;
+}
+
+.track-card--unavailable .track-card-inner {
+  filter: blur(3.5px);
+  opacity: 0.55;
+  user-select: none;
+}
+
+.track-status {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 1.25rem;
+  text-align: center;
+  font-weight: 650;
+  color: var(--ink);
+  background: rgb(245 245 247 / 0.42);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .track-card--unavailable .track-card-inner {
+    filter: none;
+    opacity: 0.38;
+  }
+
+  .track-status {
+    background: var(--paper);
+  }
 }
 
 .track-num {
@@ -330,23 +371,30 @@ main {
   color: var(--ink-soft);
 }
 
-.about-block {
-  display: grid;
-  gap: 1rem 3rem;
-  align-items: start;
-}
-
 .about-block p {
-  margin: 0 0 0.8rem;
-  max-width: 40rem;
+  margin: 0 0 0.9rem;
 }
 
 .note {
-  margin: 1.5rem 0 0;
+  margin: 0 0 0.9rem;
   padding: 0.95rem 1.1rem;
   border-left: 3px solid var(--accent);
   background: #fff7ed;
   color: var(--ink);
+}
+
+blockquote.note p:last-of-type {
+  margin-bottom: 0.75rem;
+}
+
+blockquote.note footer {
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+blockquote.note cite {
+  font-style: italic;
 }
 
 .site-footer {
@@ -543,6 +591,86 @@ main {
   color: var(--cmt);
 }
 
+.article {
+  max-width: 42rem;
+}
+
+.article h2 {
+  margin: 2.25rem 0 0.7rem;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.article h3 {
+  margin: 1.6rem 0 0.5rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.article p {
+  margin: 0 0 1rem;
+}
+
+.article ul,
+.article ol {
+  margin: 0 0 1.15rem;
+  padding-left: 1.25rem;
+}
+
+.article li + li {
+  margin-top: 0.4rem;
+}
+
+.article .code-block {
+  margin: 0.85rem 0 1.4rem;
+}
+
+.diagram {
+  margin: 1.25rem 0 1.6rem;
+  padding: 1rem;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: 0.75rem;
+}
+
+.diagram figcaption {
+  margin: 0 0 0.75rem;
+  color: var(--ink-soft);
+  font-size: 1rem;
+}
+
+.diagram .mermaid {
+  margin: 0;
+  overflow-x: auto;
+}
+
+.tutorial-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tutorial-list li + li {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+}
+
+.tutorial-list a {
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.tutorial-list a:hover {
+  text-decoration: underline;
+}
+
+.tutorial-list p {
+  margin: 0.3rem 0 0;
+  color: var(--ink-soft);
+}
+
 @media (min-width: 780px) {
   .hero {
     grid-template-columns: 1.1fr 0.9fr;
@@ -552,7 +680,6 @@ main {
     grid-template-columns: 1fr 1fr;
   }
 
-  .about-block,
   .track-layout {
     grid-template-columns: 1.4fr 1fr;
   }
@@ -574,7 +701,7 @@ main {
 }
 
 @media (max-width: 640px) {
-  .track-card {
+  .track-card-inner {
     grid-template-columns: 1fr;
   }
 }
