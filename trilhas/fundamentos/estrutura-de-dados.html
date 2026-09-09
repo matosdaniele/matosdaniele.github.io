@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estrutura de dados - Sistema Binário — Dicas da Dani</title>
+  <meta name="description" content="O que é dado, informação e conhecimento, e como o computador guarda o dado em bits, bytes e hexadecimal.">
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/css/site.css">
+</head>
+<body>
+  <a class="skip" href="#conteudo">Ir para o conteúdo</a>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="wordmark" href="../../index.html">Dicas da Dani</a>
+      <nav aria-label="Principal">
+        <a href="../../index.html">Início</a>
+        <a href="../../index.html#trilhas" aria-current="page">Trilhas</a>
+        <a href="../../sobre.html">Sobre</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="conteudo" class="wrap article">
+    <p class="crumbs"><a href="../../index.html">Início</a> · <a href="../fundamentos.html">Fundamentos de Dados</a> · Estrutura de dados - Sistema Binário</p>
+    <p class="eyebrow">Trilha 01 · tutorial</p>
+    <h1>Estrutura de dados - Sistema Binário</h1>
+    <p class="lede">Antes da tabela e do dashboard, o dado é símbolo. A estrutura começa no bit — e só vira conhecimento na mente de quem interpreta.</p>
+
+    <p>Estrutura de dados, neste texto, não é a lista de estruturas clássicas da programação (fila, pilha, árvore). É o chão em que elas se apoiam: o que conta como dado, como esse dado ganha sentido, e como a máquina o guarda para depois ser organizado, consultado e mostrado.</p>
+
+    <h2>Dado, informação e conhecimento</h2>
+    <p>Três palavras atravessam o trabalho com dados. Não são sinônimos, e a ordem entre elas importa.</p>
+    <dl class="terms">
+      <div>
+        <dt>Dado</dt>
+        <dd>Pode ser definido como uma sequência de símbolos quantificados ou quantificáveis.</dd>
+      </div>
+      <div>
+        <dt>Informação</dt>
+        <dd>É uma abstração informal que está na mente de alguém, representando algo significativo para essa pessoa.</dd>
+      </div>
+      <div>
+        <dt>Conhecimento</dt>
+        <dd>Refere-se a uma abstração interior pessoal, de algo que foi experimentado, vivenciado por alguém.</dd>
+      </div>
+    </dl>
+    <p>A hierarquia diz que dados são transformados em informação e a informação é transformada em conhecimento. O arquivo, a tabela e o byte ainda são dado. A informação aparece quando alguém lê aquele símbolo e reconhece um significado. O conhecimento vem depois, quando essa leitura se junta à experiência — o que já se viu no negócio, no sistema, no erro de ontem.</p>
+    <p>Por isso estruturar dado não é só escolher um tipo no banco. É deixar o símbolo em uma forma que outra pessoa — ou outro processo — consiga transformar em informação sem adivinhar o que estava na cabeça de quem gravou.</p>
+
+    <h2>Como o computador guarda o dado</h2>
+    <p>No teclado e na tela, os valores costumam aparecer em decimal: 0 a 9, o sistema com dez dígitos. Dentro da CPU e da memória, o circuito não trabalha com dez estados. Trabalha com dois: ligado ou desligado, 1 ou 0. Esse é o sistema binário, o mais adequado aos circuitos do computador.</p>
+    <figure class="figure figure-compact">
+      <img src="../../img/binario.jpeg" alt="Duas lâmpadas iguais: a da esquerda acesa e a da direita apagada, os dois estados do bit" width="900" height="606">
+      <figcaption>Dois estados, como o bit: ligado (1) e desligado (0).</figcaption>
+    </figure>
+    <p>O número 13, que no decimal cabe em dois dígitos, no binário vira <code>1101</code>. Cada um desses dígitos é um bit: a menor unidade de dado que a máquina transfere e armazena.</p>
+    <p>Um bit sozinho anda por um fio. Na prática, o processador e a memória não ficam mandando um bit isolado. Para ganhar velocidade, os bits viajam em grupo — 8, 16, 32 ou 64 — cada um por um caminho, mas sempre como o mesmo pacote. Os nomes clássicos desse agrupamento são:</p>
+    <ul>
+      <li><strong>Nibble</strong> — 4 bits</li>
+      <li><strong>Byte</strong> — 8 bits</li>
+      <li><strong>Word</strong> — 16 bits</li>
+      <li><strong>Double word</strong> — 32 bits</li>
+      <li><strong>Quad word</strong> — 64 bits</li>
+    </ul>
+    <p>A palavra <em>word</em> no processador pode variar com a arquitetura. O que não varia é o byte: oito bits que caminham juntos. Com bytes dá para representar números, caracteres, figuras ou qualquer outro tipo de dado armazenado ou processado no computador. A estrutura começa aí: o mesmo agrupamento de 0 e 1, lido de formas diferentes conforme o tipo.</p>
+
+    <h2>Do binário ao hexadecimal</h2>
+    <p>Escrever longas sequências de bits é frágil para o olho. O hexadecimal (base 16) comprime cada grupo de 4 bits em um único dígito: 0 a 9 e, depois, A a F.</p>
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <caption>Cada nibble (4 bits) corresponde a um dígito hexadecimal.</caption>
+        <thead>
+          <tr>
+            <th scope="col">Decimal</th>
+            <th scope="col">Binário</th>
+            <th scope="col">Hexadecimal</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>0</td><td><code>0000</code></td><td>0</td></tr>
+          <tr><td>1</td><td><code>0001</code></td><td>1</td></tr>
+          <tr><td>2</td><td><code>0010</code></td><td>2</td></tr>
+          <tr><td>3</td><td><code>0011</code></td><td>3</td></tr>
+          <tr><td>4</td><td><code>0100</code></td><td>4</td></tr>
+          <tr><td>5</td><td><code>0101</code></td><td>5</td></tr>
+          <tr><td>6</td><td><code>0110</code></td><td>6</td></tr>
+          <tr><td>7</td><td><code>0111</code></td><td>7</td></tr>
+          <tr><td>8</td><td><code>1000</code></td><td>8</td></tr>
+          <tr><td>9</td><td><code>1001</code></td><td>9</td></tr>
+          <tr><td>10</td><td><code>1010</code></td><td>A</td></tr>
+          <tr><td>11</td><td><code>1011</code></td><td>B</td></tr>
+          <tr><td>12</td><td><code>1100</code></td><td>C</td></tr>
+          <tr><td>13</td><td><code>1101</code></td><td>D</td></tr>
+          <tr><td>14</td><td><code>1110</code></td><td>E</td></tr>
+          <tr><td>15</td><td><code>1111</code></td><td>F</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Para converter binário em hexadecimal: complete à esquerda com zeros até a quantidade de bits ser múltipla de 4; depois leia de 4 em 4, da esquerda para a direita, e troque cada grupo pelo dígito da tabela. O 13 decimal, já visto como <code>1101</code>, é o D hexadecimal.</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="hexa-exemplo-label">Exemplo</span>
+        <button type="button" class="copy-code" aria-describedby="hexa-exemplo-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code>0101111010
+0001 0111 1010
+   1    7    A</code></pre>
+      </div>
+    </div>
+    <p>Os dez bits <code>0101111010</code> ganham dois zeros à esquerda, viram três nibbles e se leem como <code>17A</code> em hexadecimal. A notação costuma marcar a base: <code>(13)<sub>10</sub></code>, <code>(1101)<sub>2</sub></code>, <code>(D)<sub>16</sub></code>.</p>
+
+    <h2>O que a estrutura organiza</h2>
+    <p>Bit e byte explicam o suporte físico do dado. A estrutura é o acordo sobre como esses símbolos se agrupam para alguém conseguir lê-los: um número, um caractere, uma data, uma linha de tabela. Sem esse acordo, resta só a sequência — quantificada, mas sem informação.</p>
+    <p>Os próximos textos desta trilha entram nos tipos (o que cada símbolo permite) e na arquitetura (por onde o dado passa). Aqui o ponto é o início da cadeia: o computador guarda dado em binário; a pessoa transforma dado em informação; a prática transforma informação em conhecimento.</p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>© 2026 Daniele de Lima Matos</p>
+      <nav class="footer-links" aria-label="Contato">
+        <a href="https://www.linkedin.com/in/matosdaniele/" rel="noopener noreferrer">LinkedIn</a>
+        <a href="mailto:matos.daniele@gmail.com">matos.daniele@gmail.com</a>
+        <a href="https://github.com/matosdaniele" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="../../assets/js/site.js" defer></script>
+</body>
+</html>

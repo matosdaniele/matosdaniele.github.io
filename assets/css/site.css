@@ -592,7 +592,7 @@ blockquote.note cite {
 }
 
 .article {
-  max-width: 42rem;
+  max-width: none;
 }
 
 .article h2 {
@@ -612,6 +612,20 @@ blockquote.note cite {
   margin: 0 0 1rem;
 }
 
+.article .lede {
+  max-width: none;
+}
+
+.article p code,
+.article li code,
+.article td code {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.92em;
+  padding: 0.05em 0.28em;
+  background: var(--code-bg);
+  border-radius: 0.25rem;
+}
+
 .article ul,
 .article ol {
   margin: 0 0 1.15rem;
@@ -626,6 +640,26 @@ blockquote.note cite {
   margin: 0.85rem 0 1.4rem;
 }
 
+.article .data-table-wrap {
+  margin: 1.25rem 0 1.4rem;
+}
+
+.terms {
+  margin: 0 0 1.25rem;
+}
+
+.terms div + div {
+  margin-top: 0.9rem;
+}
+
+.terms dt {
+  font-weight: 700;
+}
+
+.terms dd {
+  margin: 0.2rem 0 0;
+}
+
 .diagram {
   margin: 1.25rem 0 1.6rem;
   padding: 1rem;
@@ -636,6 +670,32 @@ blockquote.note cite {
 
 .diagram figcaption {
   margin: 0 0 0.75rem;
+  color: var(--ink-soft);
+  font-size: 1rem;
+}
+
+.article .figure {
+  margin: 1.15rem 0 1.4rem;
+}
+
+.article .figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0.75rem;
+}
+
+.article .figure-compact {
+  max-width: 28rem;
+  margin: 1.15rem auto 1.4rem;
+}
+
+.article .figure-compact figcaption {
+  text-align: center;
+}
+
+.article .figure figcaption {
+  margin: 0.65rem 0 0;
   color: var(--ink-soft);
   font-size: 1rem;
 }
