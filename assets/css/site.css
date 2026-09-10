@@ -574,6 +574,19 @@ blockquote.note cite {
   font-family: inherit;
 }
 
+.query-result {
+  margin: 0.85rem 0 0;
+  padding: 1rem 1.1rem;
+  border-left: 3px solid var(--accent);
+  background: var(--paper-2);
+  color: var(--ink-soft);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.92rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
 .kw {
   color: var(--kw);
   font-weight: 500;

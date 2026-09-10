@@ -42,9 +42,40 @@
       </section>
       <section class="coming">
         <h2>Tutoriais</h2>
-        <p>Nenhum tutorial publicado ainda. Os textos aparecerão aqui na ordem de publicação.</p>
+        <ol class="tutorial-list">
+          <li>
+            <a href="banco-de-dados/identificar-login-esquecido.html">Identificar um login esquecido pelo usuário</a>
+            <p>O usuário esqueceu o nome do login no AdventureWorks2025 — como o administrador localiza a conta entre muitos logins.</p>
+          </li>
+          <li>
+            <a href="banco-de-dados/guardar-significado-objetos.html">Guardar o significado do objeto no banco</a>
+            <p>Por que documentar tabelas e colunas com MS_Description (extended properties) e como montar o dicionário a partir do catálogo.</p>
+          </li>
+        </ol>
       </section>
     </div>
+
+    <section class="content-example" aria-labelledby="ambiente-estudo-titulo">
+      <h2 id="ambiente-estudo-titulo">Ambiente de estudo</h2>
+      <p>Os tutoriais desta trilha usam a <a href="https://github.com/Microsoft/sql-server-samples/tree/master/samples" rel="noopener noreferrer">AdventureWorks</a>, base de dados de exemplo da Microsoft. Os arquivos e amostras estão no repositório oficial de samples do SQL Server no GitHub.</p>
+      <p>Scripts, CSVs e demais arquivos usados nos textos ficam públicos em <a href="https://github.com/matosdaniele/documentos-trilhas/tree/main/bancodedados/Guardar%20o%20significado%20do%20objeto%20no%20banco" rel="noopener noreferrer">documentos-trilhas / bancodedados</a>, para o visitante baixar e reproduzir os exemplos.</p>
+      <p>Os estudos e exemplos foram feitos nesta versão:</p>
+      <div class="code-block">
+        <div class="code-toolbar">
+          <span class="code-lang" id="sql-versao-label">T-SQL</span>
+          <button type="button" class="copy-code" aria-describedby="sql-versao-label">Copiar código</button>
+        </div>
+        <div class="code-scroll">
+          <pre class="code-gutter" aria-hidden="true"></pre>
+          <pre class="code-source" tabindex="0"><code><span class="kw">SELECT</span> @@VERSION;</code></pre>
+        </div>
+      </div>
+      <p>Resultado:</p>
+      <pre class="query-result" tabindex="0">Microsoft SQL Server 2025 (RTM) - 17.0.1000.7 (X64)
+Oct 21 2025 12:05:57
+Copyright (C) 2025 Microsoft Corporation
+Enterprise Developer Edition (64-bit) on Windows 10 Pro 10.0 &lt;X64&gt; (Build 26200: ) (Hypervisor)</pre>
+    </section>
   </main>
 
   <footer class="site-footer">
