@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Backup, Recuperação e Migração — Dicas da Dani</title>
+  <meta name="description" content="Trilha de backup, recuperação e migração no SQL Server: modelo de recuperação, backup e restore, integridade, rotinas do Agent e migração de bases.">
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body>
+  <a class="skip" href="#conteudo">Ir para o conteúdo</a>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="wordmark" href="../index.html">Dicas da Dani</a>
+      <nav aria-label="Principal">
+        <a href="../index.html">Início</a>
+        <a href="../index.html#trilhas" aria-current="page">Trilhas</a>
+        <a href="../sobre.html">Sobre</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="conteudo" class="wrap track-page">
+    <p class="crumbs"><a href="../index.html">Início</a> · <a href="../index.html#trilhas">Trilhas</a> · 03</p>
+    <p class="eyebrow">Trilha 03</p>
+    <h1>Backup, Recuperação e Migração</h1>
+    <p class="lede">O que não pode parar: ter como voltar, saber até que ponto se volta e mover dados de um lugar para outro sem perder nada no caminho.</p>
+
+    <div class="track-layout">
+      <section class="curriculum">
+        <h2>Nesta trilha</h2>
+        <ol>
+          <li>Modelo de recuperação — <em>full</em>, <em>simple</em> e <em>bulk-logged</em>, e o que cada um faz com o log de transações.</li>
+          <li>Backup e restore — completo, diferencial e de log, e a restauração para um ponto no tempo.</li>
+          <li>Integridade e rotina — <code>DBCC CHECKDB</code>, jobs do SQL Server Agent e alertas que avisam antes do problema.</li>
+          <li>Migração — unir, separar e mover bases em produção, com ensaio e conferência.</li>
+        </ol>
+      </section>
+      <section class="coming">
+        <h2>Tutoriais</h2>
+        <ol class="tutorial-list">
+          <li>
+            <a href="backup-recuperacao-e-migracao/unificar-bases-chaves-iguais.html">Unificar duas bases em produção com chaves iguais</a>
+            <p>Caso real em Problema, Ação e Resultado: unir em 15 dias duas bases com chaves repetidas, sem perda de dados.</p>
+          </li>
+        </ol>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>© 2026 Daniele de Lima Matos</p>
+      <nav class="footer-links" aria-label="Contato">
+        <a href="https://www.linkedin.com/in/matosdaniele/" rel="noopener noreferrer">LinkedIn</a>
+        <a href="mailto:matos.daniele@gmail.com">matos.daniele@gmail.com</a>
+        <a href="https://github.com/matosdaniele" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="../assets/js/site.js" defer></script>
+</body>
+</html>

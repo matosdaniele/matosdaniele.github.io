@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unificar duas bases em produção com chaves iguais — Dicas da Dani</title>
+  <meta name="description" content="Caso real em formato Problema, Ação e Resultado: unir em 15 dias duas bases de produção com chaves repetidas, sem perda de dados.">
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/css/site.css">
+</head>
+<body>
+  <a class="skip" href="#conteudo">Ir para o conteúdo</a>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="wordmark" href="../../index.html">Dicas da Dani</a>
+      <nav aria-label="Principal">
+        <a href="../../index.html">Início</a>
+        <a href="../../index.html#trilhas" aria-current="page">Trilhas</a>
+        <a href="../../sobre.html">Sobre</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="conteudo" class="wrap article">
+    <p class="crumbs"><a href="../../index.html">Início</a> · <a href="../backup-recuperacao-e-migracao.html">Backup, Recuperação e Migração</a> · Unificar duas bases em produção com chaves iguais</p>
+    <p class="eyebrow">Trilha 03 · caso real</p>
+    <h1>Unificar duas bases em produção com chaves iguais</h1>
+    <p class="lede">Duas bases, duas aplicações em produção e o mesmo número de chave apontando para dados diferentes. O cliente pediu uma base só, em 15 dias. Este é o caminho seguido, no formato Problema, Ação e Resultado.</p>
+    <p>Caso real, com liderança técnica de Daniele de Lima Matos. Os nomes de bases, tabelas e colunas foram trocados por exemplos genéricos: <code>BaseA</code> recebe os dados e <code>BaseB</code> os envia. Os scripts mostram a técnica em T-SQL; adapte nomes e chaves ao seu modelo antes de rodar.</p>
+
+    <h2>Resumo do caso</h2>
+    <dl class="terms">
+      <div>
+        <dt>Problema</dt>
+        <dd>O cliente tinha dividido o sistema em duas bases, cada uma com sua aplicação em produção. Com o tempo, as duas passaram a ter dados diferentes com chaves iguais. Num dado momento, o cliente decidiu unir as bases, com prazo de 15 dias.</dd>
+      </div>
+      <div>
+        <dt>Ação</dt>
+        <dd>Proteger as duas bases com backup, definir origem e destino, comparar estrutura, regras, nomes, tipos e permissões, tratar duplicados, gerar novas chaves com tabela de/para, ensaiar em homologação e conferir os números depois da carga.</dd>
+      </div>
+      <div>
+        <dt>Resultado</dt>
+        <dd>As bases foram unificadas dentro dos 15 dias, sem perda de dados, e o cliente passou a operar com uma única aplicação em produção.</dd>
+      </div>
+    </dl>
+
+    <h2>O problema: a mesma chave, dois significados</h2>
+    <p>Quando duas bases nascem da mesma estrutura e seguem vivas em paralelo, cada uma gera suas próprias chaves. O <code>ClienteID = 1050</code> da <code>BaseA</code> é uma pessoa; o <code>ClienteID = 1050</code> da <code>BaseB</code> é outra. Copiar as linhas de uma para a outra viola a chave primária — ou, pior, junta pedidos de clientes diferentes sob o mesmo número.</p>
+    <p>Por isso a unificação não é uma cópia. É uma tradução: cada registro da origem ganha uma chave nova no destino, e tudo que apontava para ele precisa apontar para a chave nova.</p>
+
+    <h2>A ação, passo a passo</h2>
+
+    <h3>1. Backup das duas bases e plano de volta</h3>
+    <p>Antes de qualquer alteração, as duas bases ganham backup completo e verificado. O backup é o plano de volta (rollback): se a carga falhar no meio, o destino volta ao estado anterior.</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-backup-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-backup-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">BACKUP DATABASE</span> BaseA
+  <span class="kw">TO DISK</span> = <span class="str">N'D:\Backup\BaseA_antes_unificacao.bak'</span>
+  <span class="kw">WITH</span> COPY_ONLY, CHECKSUM, INIT;
+
+<span class="kw">BACKUP DATABASE</span> BaseB
+  <span class="kw">TO DISK</span> = <span class="str">N'D:\Backup\BaseB_antes_unificacao.bak'</span>
+  <span class="kw">WITH</span> COPY_ONLY, CHECKSUM, INIT;
+
+<span class="cmt">-- Confirma que o arquivo pode ser restaurado</span>
+<span class="kw">RESTORE VERIFYONLY</span>
+  <span class="kw">FROM DISK</span> = <span class="str">N'D:\Backup\BaseA_antes_unificacao.bak'</span>
+  <span class="kw">WITH</span> CHECKSUM;</code></pre>
+      </div>
+    </div>
+    <p><code>COPY_ONLY</code> evita quebrar a sequência de backups da rotina; <code>CHECKSUM</code> detecta página corrompida já na gravação.</p>
+
+    <h3>2. Escolher a base que exporta e a que importa</h3>
+    <p>Uma base fica como destino e mantém suas chaves; a outra é a origem e tem as chaves renumeradas. Critérios que ajudam a decidir:</p>
+    <ul>
+      <li>A base com mais dados ou mais integrações externas costuma ficar como destino — menos chaves mudam, menos sistemas são afetados.</li>
+      <li>A aplicação que vai continuar em produção define a estrutura que prevalece.</li>
+      <li>Relatórios, notas ou documentos impressos com a chave visível pesam a favor de manter aquela base como destino.</li>
+    </ul>
+
+    <h3>3. Identificar chaves primárias e estrangeiras</h3>
+    <p>As chaves primárias dizem o que precisa ser renumerado. As estrangeiras (as chaves secundárias, que apontam para outra tabela) dizem o que precisa ser atualizado junto. A consulta abaixo, rodada em cada base, monta o mapa de quem depende de quem:</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-fk-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-fk-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">USE</span> BaseB;
+<span class="kw">GO</span>
+
+<span class="kw">SELECT</span>
+  <span class="kw">OBJECT_NAME</span>(fk.parent_object_id)     <span class="kw">AS</span> tabela_filha,
+  cf.name                               <span class="kw">AS</span> coluna_filha,
+  <span class="kw">OBJECT_NAME</span>(fk.referenced_object_id) <span class="kw">AS</span> tabela_pai,
+  cp.name                               <span class="kw">AS</span> coluna_pai,
+  fk.name                               <span class="kw">AS</span> nome_fk
+<span class="kw">FROM</span> sys.foreign_keys <span class="kw">AS</span> fk
+<span class="kw">JOIN</span> sys.foreign_key_columns <span class="kw">AS</span> fkc
+  <span class="kw">ON</span> fk.object_id = fkc.constraint_object_id
+<span class="kw">JOIN</span> sys.columns <span class="kw">AS</span> cf
+  <span class="kw">ON</span> cf.object_id = fkc.parent_object_id
+ <span class="kw">AND</span> cf.column_id = fkc.parent_column_id
+<span class="kw">JOIN</span> sys.columns <span class="kw">AS</span> cp
+  <span class="kw">ON</span> cp.object_id = fkc.referenced_object_id
+ <span class="kw">AND</span> cp.column_id = fkc.referenced_column_id
+<span class="kw">ORDER BY</span> tabela_pai, tabela_filha;</code></pre>
+      </div>
+    </div>
+    <p>A ordem da carga sai daqui: primeiro as tabelas pai (que não dependem de ninguém), depois as filhas. Relações que existem só na aplicação, sem FK declarada no banco, precisam ser levantadas com quem conhece o sistema — a consulta não as enxerga.</p>
+
+    <h3>4. Verificar se existem regras diferentes entre as bases</h3>
+    <p>Duas bases separadas por muito tempo acumulam ajustes diferentes: uma restrição <code>CHECK</code> a mais, um valor padrão diferente, um gatilho (trigger) que só existe de um lado. Uma linha válida na origem pode ser recusada no destino.</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-regras-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-regras-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="cmt">-- Restrições CHECK e DEFAULT, com a definição de cada uma</span>
+<span class="kw">SELECT</span> <span class="str">'BaseA'</span> <span class="kw">AS</span> base, <span class="kw">OBJECT_NAME</span>(parent_object_id) <span class="kw">AS</span> tabela,
+       name, type_desc, definition
+<span class="kw">FROM</span> BaseA.sys.check_constraints
+<span class="kw">UNION ALL</span>
+<span class="kw">SELECT</span> <span class="str">'BaseA'</span>, <span class="kw">OBJECT_NAME</span>(parent_object_id), name, type_desc, definition
+<span class="kw">FROM</span> BaseA.sys.default_constraints
+<span class="kw">UNION ALL</span>
+<span class="kw">SELECT</span> <span class="str">'BaseB'</span>, <span class="kw">OBJECT_NAME</span>(parent_object_id, <span class="kw">DB_ID</span>(<span class="str">'BaseB'</span>)), name, type_desc, definition
+<span class="kw">FROM</span> BaseB.sys.check_constraints
+<span class="kw">UNION ALL</span>
+<span class="kw">SELECT</span> <span class="str">'BaseB'</span>, <span class="kw">OBJECT_NAME</span>(parent_object_id, <span class="kw">DB_ID</span>(<span class="str">'BaseB'</span>)), name, type_desc, definition
+<span class="kw">FROM</span> BaseB.sys.default_constraints
+<span class="kw">ORDER BY</span> tabela, name, base;
+
+<span class="cmt">-- Gatilhos de cada lado</span>
+<span class="kw">SELECT</span> <span class="str">'BaseA'</span> <span class="kw">AS</span> base, name, is_disabled <span class="kw">FROM</span> BaseA.sys.triggers
+<span class="kw">UNION ALL</span>
+<span class="kw">SELECT</span> <span class="str">'BaseB'</span>, name, is_disabled <span class="kw">FROM</span> BaseB.sys.triggers
+<span class="kw">ORDER BY</span> name, base;</code></pre>
+      </div>
+    </div>
+    <p>Rode a consulta conectado na <code>BaseA</code>: o <code>OBJECT_NAME</code> sem segundo parâmetro resolve os nomes do banco atual, por isso a <code>BaseB</code> recebe o <code>DB_ID</code>. Regras de negócio que vivem na aplicação — e não no banco — entram na mesma lista, conversando com quem mantém cada sistema.</p>
+
+    <h3>5. Verificar nomenclaturas, tipos, tamanhos e collation</h3>
+    <p>Tabela com nome igual não garante coluna igual. Uma base pode ter <code>Nome VARCHAR(100)</code> e a outra <code>Nome VARCHAR(60)</code>: a carga trunca o texto ou falha. A collation (regra de comparação e ordenação de texto) diferente gera erro em junções e muda o resultado de buscas com acento ou maiúscula.</p>
+    <p>Um <code>FULL JOIN</code> entre os catálogos mostra, de uma vez, o que existe só de um lado (nomenclatura) e o que existe dos dois lados com definição diferente (tipo, tamanho, collation):</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-colunas-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-colunas-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">SELECT</span>
+  <span class="kw">COALESCE</span>(a.TABLE_NAME, b.TABLE_NAME)   <span class="kw">AS</span> tabela,
+  <span class="kw">COALESCE</span>(a.COLUMN_NAME, b.COLUMN_NAME) <span class="kw">AS</span> coluna,
+  a.DATA_TYPE <span class="kw">AS</span> tipo_a,  a.CHARACTER_MAXIMUM_LENGTH <span class="kw">AS</span> tamanho_a,  a.COLLATION_NAME <span class="kw">AS</span> collation_a,
+  b.DATA_TYPE <span class="kw">AS</span> tipo_b,  b.CHARACTER_MAXIMUM_LENGTH <span class="kw">AS</span> tamanho_b,  b.COLLATION_NAME <span class="kw">AS</span> collation_b
+<span class="kw">FROM</span> BaseA.INFORMATION_SCHEMA.COLUMNS <span class="kw">AS</span> a
+<span class="kw">FULL JOIN</span> BaseB.INFORMATION_SCHEMA.COLUMNS <span class="kw">AS</span> b
+  <span class="kw">ON</span>  a.TABLE_SCHEMA <span class="kw">COLLATE</span> DATABASE_DEFAULT = b.TABLE_SCHEMA <span class="kw">COLLATE</span> DATABASE_DEFAULT
+  <span class="kw">AND</span> a.TABLE_NAME   <span class="kw">COLLATE</span> DATABASE_DEFAULT = b.TABLE_NAME   <span class="kw">COLLATE</span> DATABASE_DEFAULT
+  <span class="kw">AND</span> a.COLUMN_NAME  <span class="kw">COLLATE</span> DATABASE_DEFAULT = b.COLUMN_NAME  <span class="kw">COLLATE</span> DATABASE_DEFAULT
+<span class="kw">WHERE</span> a.COLUMN_NAME <span class="kw">IS NULL</span>
+   <span class="kw">OR</span> b.COLUMN_NAME <span class="kw">IS NULL</span>
+   <span class="kw">OR</span> a.DATA_TYPE <span class="kw">COLLATE</span> DATABASE_DEFAULT &lt;&gt; b.DATA_TYPE <span class="kw">COLLATE</span> DATABASE_DEFAULT
+   <span class="kw">OR</span> <span class="kw">ISNULL</span>(a.CHARACTER_MAXIMUM_LENGTH, <span class="num">0</span>) &lt;&gt; <span class="kw">ISNULL</span>(b.CHARACTER_MAXIMUM_LENGTH, <span class="num">0</span>)
+   <span class="kw">OR</span> <span class="kw">ISNULL</span>(a.COLLATION_NAME, <span class="str">''</span>) <span class="kw">COLLATE</span> DATABASE_DEFAULT
+      &lt;&gt; <span class="kw">ISNULL</span>(b.COLLATION_NAME, <span class="str">''</span>) <span class="kw">COLLATE</span> DATABASE_DEFAULT
+<span class="kw">ORDER BY</span> tabela, coluna;</code></pre>
+      </div>
+    </div>
+    <p>O <code>COLLATE DATABASE_DEFAULT</code> evita o erro de conflito de collation justamente quando as duas bases têm collations diferentes. Linha com <code>tipo_b</code> vazio é coluna que só existe na <code>BaseA</code>, e vice-versa — às vezes é a mesma coluna com outro nome, e o de/para de nomes vira parte do script de carga.</p>
+
+    <h3>6. Identificar registros duplicados entre as bases</h3>
+    <p>Chave igual com dado diferente é um problema; dado igual com chave diferente é outro. O mesmo cliente pode ter sido cadastrado nas duas bases. Copiar os dois cria um cliente em dobro. A busca usa um identificador de negócio — documento, e-mail, código externo — e não a chave técnica:</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-dup-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-dup-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">SELECT</span>
+  a.ClienteID <span class="kw">AS</span> id_base_a,
+  b.ClienteID <span class="kw">AS</span> id_base_b,
+  a.Documento,
+  a.Nome      <span class="kw">AS</span> nome_base_a,
+  b.Nome      <span class="kw">AS</span> nome_base_b
+<span class="kw">FROM</span> BaseA.dbo.Cliente <span class="kw">AS</span> a
+<span class="kw">JOIN</span> BaseB.dbo.Cliente <span class="kw">AS</span> b
+  <span class="kw">ON</span> a.Documento = b.Documento;</code></pre>
+      </div>
+    </div>
+    <p>Para cada par, alguém do negócio decide qual cadastro prevalece. Na carga, o registro duplicado da origem não é inserido: ele passa a apontar para a chave que já existe no destino.</p>
+
+    <h3>7. Gerar as novas chaves com uma tabela de/para</h3>
+    <p>A tabela de/para guarda, para cada registro da origem, a chave antiga e a chave nova. Ela resolve três coisas: atualizar as tabelas filhas, rastrear qualquer registro depois da migração e responder a pergunta “onde foi parar o cliente 1050 da BaseB?”.</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-depara-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-depara-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">USE</span> BaseA;
+<span class="kw">GO</span>
+
+<span class="kw">CREATE TABLE</span> dbo.DePara_Cliente (
+  ClienteID_origem <span class="kw">INT NOT NULL PRIMARY KEY</span>,
+  ClienteID_novo   <span class="kw">INT NOT NULL</span>,
+  duplicado        <span class="kw">BIT NOT NULL</span>
+);
+
+<span class="cmt">-- 1. Duplicados: a origem aponta para o cliente que já existe no destino</span>
+<span class="kw">INSERT INTO</span> dbo.DePara_Cliente (ClienteID_origem, ClienteID_novo, duplicado)
+<span class="kw">SELECT</span> b.ClienteID, a.ClienteID, <span class="num">1</span>
+<span class="kw">FROM</span> BaseB.dbo.Cliente <span class="kw">AS</span> b
+<span class="kw">JOIN</span> dbo.Cliente <span class="kw">AS</span> a
+  <span class="kw">ON</span> a.Documento = b.Documento;
+
+<span class="cmt">-- 2. Demais clientes: entram com chave nova (IDENTITY) e o par fica registrado</span>
+<span class="kw">MERGE</span> dbo.Cliente <span class="kw">AS</span> destino
+<span class="kw">USING</span> (
+  <span class="kw">SELECT</span> b.ClienteID, b.Nome, b.Documento
+  <span class="kw">FROM</span> BaseB.dbo.Cliente <span class="kw">AS</span> b
+  <span class="kw">WHERE NOT EXISTS</span> (
+    <span class="kw">SELECT</span> <span class="num">1</span> <span class="kw">FROM</span> dbo.DePara_Cliente <span class="kw">AS</span> m
+    <span class="kw">WHERE</span> m.ClienteID_origem = b.ClienteID
+  )
+) <span class="kw">AS</span> origem
+<span class="kw">ON</span> <span class="num">1</span> = <span class="num">0</span>
+<span class="kw">WHEN NOT MATCHED THEN</span>
+  <span class="kw">INSERT</span> (Nome, Documento)
+  <span class="kw">VALUES</span> (origem.Nome, origem.Documento)
+<span class="kw">OUTPUT</span> origem.ClienteID, inserted.ClienteID, <span class="num">0</span>
+  <span class="kw">INTO</span> dbo.DePara_Cliente (ClienteID_origem, ClienteID_novo, duplicado);</code></pre>
+      </div>
+    </div>
+    <p>O <code>MERGE</code> com <code>ON 1 = 0</code> é um recurso para inserir tudo e, ao mesmo tempo, capturar no <code>OUTPUT</code> a chave da origem junto com a chave gerada — algo que o <code>INSERT ... SELECT</code> com <code>OUTPUT</code> não permite, porque só enxerga as colunas inseridas.</p>
+
+    <h3>8. Atualizar as chaves estrangeiras das tabelas filhas</h3>
+    <p>Com o de/para pronto, as tabelas filhas da origem entram no destino trocando a chave antiga pela nova no próprio <code>JOIN</code>. Nenhum pedido fica apontando para o cliente errado:</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-filhas-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-filhas-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">INSERT INTO</span> dbo.Pedido (ClienteID, DataPedido, Valor)
+<span class="kw">SELECT</span>
+  m.ClienteID_novo,
+  p.DataPedido,
+  p.Valor
+<span class="kw">FROM</span> BaseB.dbo.Pedido <span class="kw">AS</span> p
+<span class="kw">JOIN</span> dbo.DePara_Cliente <span class="kw">AS</span> m
+  <span class="kw">ON</span> m.ClienteID_origem = p.ClienteID;</code></pre>
+      </div>
+    </div>
+    <p>Se a tabela filha também é pai de outra (o pedido tem itens), ela ganha seu próprio de/para pelo mesmo <code>MERGE</code> do passo anterior, e a cadeia segue a ordem levantada no passo 3. Um <code>JOIN</code> que perde linhas aqui indica pedido órfão na origem: vale contar antes, para a diferença não aparecer só na conferência.</p>
+
+    <h3>9. Verificar permissões de usuários</h3>
+    <p>Quem usava a aplicação da <code>BaseB</code> vai passar a trabalhar na <code>BaseA</code>. Usuários, papéis (roles) e permissões precisam existir no destino com o mesmo alcance — nem menos, para não travar ninguém, nem mais, para não abrir acesso indevido.</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-perm-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-perm-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">USE</span> BaseB;
+<span class="kw">GO</span>
+
+<span class="kw">SELECT</span>
+  u.name      <span class="kw">AS</span> usuario,
+  r.name      <span class="kw">AS</span> papel,
+  u.type_desc <span class="kw">AS</span> tipo
+<span class="kw">FROM</span> sys.database_role_members <span class="kw">AS</span> rm
+<span class="kw">JOIN</span> sys.database_principals <span class="kw">AS</span> u
+  <span class="kw">ON</span> u.principal_id = rm.member_principal_id
+<span class="kw">JOIN</span> sys.database_principals <span class="kw">AS</span> r
+  <span class="kw">ON</span> r.principal_id = rm.role_principal_id
+<span class="kw">ORDER BY</span> usuario, papel;</code></pre>
+      </div>
+    </div>
+    <p>A mesma consulta na <code>BaseA</code> mostra o que falta criar. Permissões concedidas direto ao usuário, fora de papéis, aparecem em <code>sys.database_permissions</code>. O login da instância também precisa existir — e, se a <code>BaseA</code> estiver em outro servidor, o <code>SID</code> do login deve bater para o usuário não ficar órfão.</p>
+
+    <h3>10. Ensaio em homologação</h3>
+    <p>Todo o roteiro roda primeiro numa cópia restaurada dos backups do passo 1, num ambiente de homologação. O ensaio mede quanto tempo a carga leva (o que define a janela de parada em produção), mostra os erros antes que eles aconteçam de verdade e deixa a aplicação ser testada com a base já unificada.</p>
+    <p>O ensaio pode ser repetido quantas vezes for preciso: restaura, roda, confere, corrige o script. Na produção, roda só a versão que já passou limpa.</p>
+
+    <h3>11. Conferência depois da carga</h3>
+    <p>Sem perda de dados é uma conta, não uma impressão. Para cada tabela, o total no destino depois da carga precisa ser igual ao total do destino antes, mais os registros da origem, menos os duplicados que não foram inseridos:</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-confere-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-confere-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="cmt">-- Clientes: destino antes + origem - duplicados = destino depois</span>
+<span class="kw">SELECT</span>
+  (<span class="kw">SELECT COUNT</span>(*) <span class="kw">FROM</span> BaseB.dbo.Cliente)                          <span class="kw">AS</span> origem,
+  (<span class="kw">SELECT COUNT</span>(*) <span class="kw">FROM</span> BaseA.dbo.DePara_Cliente <span class="kw">WHERE</span> duplicado = <span class="num">1</span>) <span class="kw">AS</span> duplicados,
+  (<span class="kw">SELECT COUNT</span>(*) <span class="kw">FROM</span> BaseA.dbo.DePara_Cliente <span class="kw">WHERE</span> duplicado = <span class="num">0</span>) <span class="kw">AS</span> inseridos,
+  (<span class="kw">SELECT COUNT</span>(*) <span class="kw">FROM</span> BaseA.dbo.Cliente)                          <span class="kw">AS</span> destino_depois;
+
+<span class="cmt">-- Totais de valor: a soma dos pedidos não pode mudar</span>
+<span class="kw">SELECT</span>
+  (<span class="kw">SELECT SUM</span>(Valor) <span class="kw">FROM</span> BaseB.dbo.Pedido) <span class="kw">AS</span> valor_origem,
+  (<span class="kw">SELECT SUM</span>(p.Valor)
+   <span class="kw">FROM</span> BaseA.dbo.Pedido <span class="kw">AS</span> p
+   <span class="kw">JOIN</span> BaseA.dbo.DePara_Cliente <span class="kw">AS</span> m
+     <span class="kw">ON</span> m.ClienteID_novo = p.ClienteID) <span class="kw">AS</span> valor_migrado;</code></pre>
+      </div>
+    </div>
+    <p>O <code>destino_depois</code> é comparado com a contagem anotada antes da carga; <code>origem</code> precisa ser igual a <code>duplicados + inseridos</code>. Contagem confere quantidade; soma de valor confere conteúdo. Para tabelas sem coluna numérica, um <code>CHECKSUM_AGG(CHECKSUM(...))</code> sobre as colunas de negócio faz o mesmo papel. A segunda consulta pressupõe que o destino não tinha pedidos dos clientes duplicados antes; se tinha, separe os pedidos recém-inseridos (por data de carga ou por uma coluna de origem) antes de somar.</p>
+
+    <h2>Resultado</h2>
+    <p>As duas bases foram unificadas dentro dos 15 dias, sem perda de dados, e o cliente passou a operar com uma única aplicação em produção.</p>
+    <p>O que sustentou o prazo foi a ordem: proteger antes de mexer, comparar antes de copiar, ensaiar antes de produzir e conferir antes de declarar pronto. A tabela de/para continua útil depois da entrega — é ela que responde onde foi parar cada registro antigo.</p>
+
+    <h2>Checklist para um caso parecido</h2>
+    <ul>
+      <li>Backup verificado das duas bases e plano de volta definido.</li>
+      <li>Base de origem e base de destino escolhidas, com o critério registrado.</li>
+      <li>Mapa de chaves primárias e estrangeiras, incluindo relações que só existem na aplicação.</li>
+      <li>Comparação de regras: <code>CHECK</code>, <code>DEFAULT</code>, gatilhos e regras de negócio.</li>
+      <li>Comparação de nomes, tipos, tamanhos e collation.</li>
+      <li>Duplicados identificados por chave de negócio e decisão de qual prevalece.</li>
+      <li>Tabela de/para para cada tabela renumerada.</li>
+      <li>Tabelas filhas carregadas com a chave nova.</li>
+      <li>Usuários, papéis e permissões recriados no destino.</li>
+      <li>Ensaio completo em homologação, com tempo de carga medido.</li>
+      <li>Conferência de contagens e totais antes de liberar a aplicação.</li>
+    </ul>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>© 2026 Daniele de Lima Matos</p>
+      <nav class="footer-links" aria-label="Contato">
+        <a href="https://www.linkedin.com/in/matosdaniele/" rel="noopener noreferrer">LinkedIn</a>
+        <a href="mailto:matos.daniele@gmail.com">matos.daniele@gmail.com</a>
+        <a href="https://github.com/matosdaniele" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="../../assets/js/site.js" defer></script>
+</body>
+</html>

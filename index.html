@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dicas da Dani — trilhas de dados</title>
-  <meta name="description" content="Tutoriais e trilhas de dados: fundamentos, SQL e NoSQL, análise e visualização, e programação com Python ou R.">
+  <title>Dicas da Dani — administração de banco de dados</title>
+  <meta name="description" content="Tutoriais de administração de banco de dados com SQL Server: fundamentos, segurança e acesso, backup, recuperação e migração, e desempenho.">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,9 +27,9 @@
   <main id="conteudo" class="wrap">
     <section class="hero">
       <div class="hero-copy">
-        <p class="eyebrow">Trilhas de dados</p>
+        <p class="eyebrow">Administração de banco de dados</p>
         <h1>Olá, eu sou a Daniele.</h1>
-        <p class="lede">Compartilho o caminho entre a pergunta de negócio e o dado que responde — em quatro trilhas, do fundamento ao dashboard.</p>
+        <p class="lede">Compartilho a rotina de quem cuida do banco: acesso, backup, desempenho e as migrações que não podem parar a produção — com SQL Server e exemplos do trabalho real.</p>
         <div class="actions">
           <a class="button" href="#trilhas">Começar pelas trilhas</a>
           <a class="button button-ghost" href="sobre.html">Sobre mim</a>
@@ -42,68 +42,67 @@
 
     <section class="section" id="trilhas">
       <h2>As quatro trilhas</h2>
-      <p class="section-intro">Separei o conteúdo em quatro caminhos. Fundamentos e Banco de Dados já têm tutorial publicado; as trilhas 03 e 04 ficam indisponíveis até haver conteúdo.</p>
+      <p class="section-intro">Separei o conteúdo em quatro caminhos, do fundamento ao desempenho. As três primeiras trilhas já têm tutorial; Desempenho fica indisponível até haver conteúdo.</p>
       <ol class="tracks">
         <li>
           <a class="track-card" href="trilhas/fundamentos.html">
             <div class="track-card-inner">
               <span class="track-num" aria-hidden="true">01</span>
               <span>
-                <h3>Fundamentos de Dados</h3>
-                <p>Conceitos de estrutura de dados.</p>
+                <h3>Fundamentos de Banco de Dados</h3>
+                <p>O que está guardado e como: do bit à página do SQL Server, tipos de dados e o modelo documentado.</p>
                 <ul class="topics">
-                  <li>Tipo de dados</li>
-                  <li>Arquitetura</li>
+                  <li>Tipos de dados</li>
+                  <li>Armazenamento</li>
+                  <li>Modelagem e documentação</li>
                 </ul>
               </span>
             </div>
           </a>
         </li>
         <li>
-          <a class="track-card" href="trilhas/banco-de-dados.html">
+          <a class="track-card" href="trilhas/seguranca-e-acesso.html">
             <div class="track-card-inner">
               <span class="track-num" aria-hidden="true">02</span>
               <span>
-                <h3>Banco de Dados (SQL &amp; NoSQL)</h3>
-                <p>Consultas práticas, otimização, administração.</p>
+                <h3>Segurança e Acesso</h3>
+                <p>Quem entra no banco, com que conta e para fazer o quê.</p>
                 <ul class="topics">
-                  <li>SELECT, JOINs, GROUP BY</li>
-                  <li>Otimização</li>
-                  <li>MSSQL · MongoDB</li>
-                  <li>ETL</li>
+                  <li>Login e usuário</li>
+                  <li>Permissões</li>
+                  <li>Auditoria</li>
                 </ul>
               </span>
             </div>
           </a>
         </li>
         <li>
-          <article class="track-card track-card--unavailable" aria-describedby="trilha-03-status">
+          <a class="track-card" href="trilhas/backup-recuperacao-e-migracao.html">
             <div class="track-card-inner">
               <span class="track-num" aria-hidden="true">03</span>
               <span>
-                <h3>Análise e Visualização</h3>
-                <p>Ferramentas de BI, dashboards, métricas de negócio e storytelling com dados.</p>
+                <h3>Backup, Recuperação e Migração</h3>
+                <p>Ter como voltar, saber até onde se volta e mover dados sem perder nada no caminho.</p>
                 <ul class="topics">
-                  <li>Power BI</li>
-                  <li>Dashboards</li>
-                  <li>Storytelling</li>
+                  <li>Backup e restore</li>
+                  <li>Integridade</li>
+                  <li>Migração</li>
                 </ul>
               </span>
             </div>
-            <p class="track-status" id="trilha-03-status">Em breve — nenhum tutorial publicado ainda</p>
-          </article>
+          </a>
         </li>
         <li>
           <article class="track-card track-card--unavailable" aria-describedby="trilha-04-status">
             <div class="track-card-inner">
               <span class="track-num" aria-hidden="true">04</span>
               <span>
-                <h3>Programação para Dados</h3>
-                <p>Tutoriais práticos com Python (Pandas, NumPy) ou R para manipulação e limpeza de dados.</p>
+                <h3>Desempenho</h3>
+                <p>Ler o que o banco mostra antes de mexer: plano de execução, índices e esperas.</p>
                 <ul class="topics">
-                  <li>Python</li>
-                  <li>Git</li>
-                  <li>Limpeza de dados</li>
+                  <li>Plano de execução</li>
+                  <li>Índices</li>
+                  <li>Query Store</li>
                 </ul>
               </span>
             </div>
@@ -113,15 +112,37 @@
       </ol>
     </section>
 
+    <section class="section content-example" aria-labelledby="ambiente-estudo-titulo">
+      <h2 id="ambiente-estudo-titulo">Ambiente de estudo</h2>
+      <p>Os tutoriais usam a <a href="https://github.com/Microsoft/sql-server-samples/tree/master/samples" rel="noopener noreferrer">AdventureWorks</a>, base de dados de exemplo da Microsoft. Os arquivos e amostras estão no repositório oficial de samples do SQL Server no GitHub.</p>
+      <p>Scripts, CSVs e demais arquivos usados nos textos ficam públicos em <a href="https://github.com/matosdaniele/documentos-trilhas" rel="noopener noreferrer">documentos-trilhas</a>, para você baixar e reproduzir os exemplos.</p>
+      <p>Os estudos e exemplos foram feitos nesta versão:</p>
+      <div class="code-block">
+        <div class="code-toolbar">
+          <span class="code-lang" id="sql-versao-label">T-SQL</span>
+          <button type="button" class="copy-code" aria-describedby="sql-versao-label">Copiar código</button>
+        </div>
+        <div class="code-scroll">
+          <pre class="code-gutter" aria-hidden="true"></pre>
+          <pre class="code-source" tabindex="0"><code><span class="kw">SELECT</span> @@VERSION;</code></pre>
+        </div>
+      </div>
+      <p>Resultado:</p>
+      <pre class="query-result" tabindex="0">Microsoft SQL Server 2025 (RTM) - 17.0.1000.7 (X64)
+Oct 21 2025 12:05:57
+Copyright (C) 2025 Microsoft Corporation
+Enterprise Developer Edition (64-bit) on Windows 10 Pro 10.0 &lt;X64&gt; (Build 26200: ) (Hypervisor)</pre>
+    </section>
+
     <section class="section about-block" aria-labelledby="sobre-titulo">
       <h2 id="sobre-titulo">Quem escreve</h2>
-      <p>Sou analista de dados/BI e DBA SQL Server. Trabalho com T-SQL, modelagem, ETL e painéis, e uso este espaço para registrar o que a prática ensina.</p>
+      <p>Sou DBA SQL Server e analista de dados/BI. Trabalho com T-SQL, modelagem, ETL e painéis, e uso este espaço para registrar o que a prática ensina.</p>
       <p>Penso que no cenário atual, a informação se tornou um dos ativos mais valiosos para o sucesso e o crescimento de qualquer organização. No entanto, para que esses dados gerem valor real e insights estratégicos, não basta apenas coletá-los; é preciso saber como organizá-los e manipulá-los de forma eficiente. No clássico livro <cite>Sistema de Banco de Dados</cite>, os autores Abraham Silberschatz, Henry F. Korth e S. Sudarshan resumem com precisão essa engrenagem fundamental:</p>
       <blockquote class="note">
         <p>“A gestão dos dados envolve tanto a definição de estruturas para o armazenamento de informações quanto os mecanismos que preveem a manipulação da informação.”</p>
         <footer>— Abraham Silberschatz, Henry F. Korth e S. Sudarshan no livro <cite>Sistema de Banco de Dados</cite>.</footer>
       </blockquote>
-      <p>A partir desse conceito, entendemos que o gerenciamento de dados vai muito além de um aspecto técnico...</p>
+      <p>A partir desse conceito, entendemos que o gerenciamento de dados vai muito além de um aspecto técnico: envolve garantir que o dado esteja disponível, seguro e íntegro — e é desse trabalho que tratam as trilhas.</p>
       <p><a href="sobre.html">Ler a página Sobre</a></p>
     </section>
   </main>

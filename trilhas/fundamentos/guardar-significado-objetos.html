@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Guardar o significado do objeto no banco — Dicas da Dani</title>
+  <meta name="description" content="Por que documentar tabelas e colunas com MS_Description (extended properties) no SQL Server, com exemplos no AdventureWorks2025.">
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/css/site.css">
+</head>
+<body>
+  <a class="skip" href="#conteudo">Ir para o conteúdo</a>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="wordmark" href="../../index.html">Dicas da Dani</a>
+      <nav aria-label="Principal">
+        <a href="../../index.html">Início</a>
+        <a href="../../index.html#trilhas" aria-current="page">Trilhas</a>
+        <a href="../../sobre.html">Sobre</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="conteudo" class="wrap article">
+    <p class="crumbs"><a href="../../index.html">Início</a> · <a href="../fundamentos.html">Fundamentos de Banco de Dados</a> · Guardar o significado do objeto no banco</p>
+    <p class="eyebrow">Trilha 01 · tutorial</p>
+    <h1>Guardar o significado do objeto no banco</h1>
+    <p class="lede">Nome de tabela e tipo de coluna dizem a forma. A descrição diz o significado. Guardar esse significado no próprio banco — via extended properties / <code>MS_Description</code> — evita que a documentação se perca fora do modelo.</p>
+    <p>Exemplos validados no <a href="../../index.html#ambiente-estudo-titulo">Microsoft SQL Server 2025 (RTM) 17.0.1000.7</a>, Enterprise Developer Edition, com a base <code>AdventureWorks2025</code>.</p>
+
+    <h2>Por que documentar dentro do banco</h2>
+    <p>Planilha, wiki e comentário em ticket envelhecem longe do objeto. A <code>MS_Description</code> fica colada à tabela, à coluna ou à procedure — e viaja com o backup, o restore e o script de deploy.</p>
+    <ul>
+      <li><strong>Documentação co‑localizada</strong> — fica junto ao objeto e não se perde fora do banco.</li>
+      <li><strong>Manutenção e governança</strong> — facilita impacto, linhagem e análise de mudanças (quem, por quê, formato).</li>
+      <li><strong>Onboarding e suporte</strong> — novos desenvolvedores e DBAs entendem o modelo sem caçar docs externas.</li>
+      <li><strong>Ferramentas e automação</strong> — SSMS, dicionários, scripts e ETL/metadata leem automaticamente.</li>
+      <li><strong>Consistência e rastreabilidade</strong> — reduz divergência entre código e documentação; permite gerar dicionários atuais.</li>
+      <li><strong>Compliance e controle</strong> — útil na auditoria e como evidência de regra de negócio ou sensibilidade do dado.</li>
+    </ul>
+
+    <h2>Boas práticas rápidas</h2>
+    <ul>
+      <li>Padronize chaves e conteúdo (ex.: <code>MS_Description</code> com texto estruturado: finalidade, valores permitidos, unidades).</li>
+      <li>Salve os scripts de criação e alteração de extended properties no controle de versão.</li>
+      <li>Use texto objetivo e exemplos; evite duplicar o que o nome ou a constraint já deixam óbvio.</li>
+      <li>Garanta permissão adequada (<code>VIEW DEFINITION</code> para leitura; permissão de alteração para gravar).</li>
+      <li>Atualize a descrição sempre que o objeto mudar — inclua data e autor quando for relevante.</li>
+    </ul>
+    <p>Para criar use <code>sp_addextendedproperty</code>. Se a propriedade já existir, use <code>sp_updateextendedproperty</code> com os mesmos níveis (<code>SCHEMA</code> / <code>TABLE</code> / <code>COLUMN</code>).</p>
+
+    <h2>Adicionar descrição de tabela</h2>
+    <p>No AdventureWorks2025 a loja está em <code>Sales.Store</code>. O padrão abaixo grava (ou atualiza, se você trocar o procedure) a descrição da tabela:</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-tbl-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-tbl-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">EXEC</span> sp_addextendedproperty
+  @name = <span class="str">N'MS_Description'</span>,
+  @value = <span class="str">N'Tabela de lojas: contém informações de endereço e gerente.'</span>,
+  @level0type = <span class="str">N'SCHEMA'</span>, @level0name = <span class="str">N'Sales'</span>,
+  @level1type = <span class="str">N'TABLE'</span>,  @level1name = <span class="str">N'Store'</span>;
+<span class="kw">GO</span></code></pre>
+      </div>
+    </div>
+
+    <h2>Adicionar descrição de coluna</h2>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-col-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-col-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">EXEC</span> sp_addextendedproperty
+  @name = <span class="str">N'MS_Description'</span>,
+  @value = <span class="str">N'Código identificador da loja (PK, INT).'</span>,
+  @level0type = <span class="str">N'SCHEMA'</span>, @level0name = <span class="str">N'Sales'</span>,
+  @level1type = <span class="str">N'TABLE'</span>,  @level1name = <span class="str">N'Store'</span>,
+  @level2type = <span class="str">N'COLUMN'</span>, @level2name = <span class="str">N'BusinessEntityID'</span>;
+<span class="kw">GO</span></code></pre>
+      </div>
+    </div>
+
+    <h2>Consultar o dicionário da tabela</h2>
+    <p>A consulta abaixo monta um recorte de dicionário: colunas, tipo, nulo, identidade, default, PK, FK e as descrições (<code>MS_Description</code>) da coluna e da tabela.</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-dict-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-dict-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">DECLARE</span> @schema <span class="kw">sysname</span> = <span class="str">'Sales'</span>;
+<span class="kw">DECLARE</span> @table  <span class="kw">sysname</span> = <span class="str">'Store'</span>;
+<span class="kw">DECLARE</span> @objid  <span class="kw">int</span>     = <span class="kw">OBJECT_ID</span>(<span class="kw">QUOTENAME</span>(@schema) + <span class="str">'.'</span> + <span class="kw">QUOTENAME</span>(@table));
+
+<span class="kw">IF</span> @objid <span class="kw">IS NULL</span>
+<span class="kw">BEGIN</span>
+    <span class="kw">PRINT</span> <span class="str">'Tabela não encontrada.'</span>;
+<span class="kw">END</span>
+<span class="kw">ELSE</span>
+<span class="kw">BEGIN</span>
+    <span class="kw">SELECT</span>
+      s.name <span class="kw">AS</span> schema_name,
+      t.name <span class="kw">AS</span> table_name,
+      c.name <span class="kw">AS</span> column_name,
+      tp.name <span class="kw">AS</span> data_type,
+      c.max_length,
+      c.precision,
+      c.scale,
+      <span class="kw">CASE WHEN</span> c.is_nullable = <span class="num">1</span> <span class="kw">THEN</span> <span class="str">'YES'</span> <span class="kw">ELSE</span> <span class="str">'NO'</span> <span class="kw">END AS</span> is_nullable,
+      <span class="kw">CASE WHEN</span> ic.object_id <span class="kw">IS NOT NULL THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END AS</span> is_identity,
+      df.definition <span class="kw">AS</span> default_definition,
+      <span class="kw">CASE WHEN</span> pk.index_id <span class="kw">IS NOT NULL THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END AS</span> is_primary_key,
+      fk.ref_schema + <span class="str">'.'</span> + fk.ref_table <span class="kw">AS</span> referenced_object,
+      col_ep.value <span class="kw">AS</span> column_description,
+      tbl_ep.value <span class="kw">AS</span> table_description
+    <span class="kw">FROM</span> sys.schemas <span class="kw">AS</span> s
+    <span class="kw">JOIN</span> sys.tables <span class="kw">AS</span> t
+      <span class="kw">ON</span> t.schema_id = s.schema_id <span class="kw">AND</span> t.object_id = @objid
+    <span class="kw">JOIN</span> sys.columns <span class="kw">AS</span> c
+      <span class="kw">ON</span> c.object_id = t.object_id
+    <span class="kw">LEFT JOIN</span> sys.types <span class="kw">AS</span> tp
+      <span class="kw">ON</span> tp.user_type_id = c.user_type_id
+    <span class="kw">LEFT JOIN</span> sys.identity_columns <span class="kw">AS</span> ic
+      <span class="kw">ON</span> ic.object_id = c.object_id <span class="kw">AND</span> ic.column_id = c.column_id
+    <span class="kw">LEFT JOIN</span> sys.default_constraints <span class="kw">AS</span> df
+      <span class="kw">ON</span> df.parent_object_id = c.object_id
+     <span class="kw">AND</span> df.parent_column_id = c.column_id
+    <span class="kw">LEFT JOIN</span> (
+      <span class="kw">SELECT</span> i.object_id, i.index_id
+      <span class="kw">FROM</span> sys.indexes <span class="kw">AS</span> i
+      <span class="kw">WHERE</span> i.is_primary_key = <span class="num">1</span>
+    ) <span class="kw">AS</span> pk
+      <span class="kw">ON</span> pk.object_id = t.object_id
+    <span class="kw">OUTER APPLY</span> (
+      <span class="kw">SELECT TOP</span> (<span class="num">1</span>)
+        rs.name <span class="kw">AS</span> ref_schema,
+        rt.name <span class="kw">AS</span> ref_table
+      <span class="kw">FROM</span> sys.foreign_key_columns <span class="kw">AS</span> fkc
+      <span class="kw">JOIN</span> sys.objects <span class="kw">AS</span> rf
+        <span class="kw">ON</span> rf.object_id = fkc.referenced_object_id <span class="kw">AND</span> rf.type = <span class="str">'U'</span>
+      <span class="kw">JOIN</span> sys.tables <span class="kw">AS</span> rt
+        <span class="kw">ON</span> rt.object_id = rf.object_id
+      <span class="kw">JOIN</span> sys.schemas <span class="kw">AS</span> rs
+        <span class="kw">ON</span> rs.schema_id = rt.schema_id
+      <span class="kw">WHERE</span> fkc.parent_object_id = c.object_id
+        <span class="kw">AND</span> fkc.parent_column_id = c.column_id
+    ) <span class="kw">AS</span> fk
+    <span class="kw">LEFT JOIN</span> sys.extended_properties <span class="kw">AS</span> col_ep
+      <span class="kw">ON</span> col_ep.major_id = c.object_id
+     <span class="kw">AND</span> col_ep.minor_id = c.column_id
+     <span class="kw">AND</span> col_ep.name = <span class="str">'MS_Description'</span>
+    <span class="kw">LEFT JOIN</span> sys.extended_properties <span class="kw">AS</span> tbl_ep
+      <span class="kw">ON</span> tbl_ep.major_id = t.object_id
+     <span class="kw">AND</span> tbl_ep.minor_id = <span class="num">0</span>
+     <span class="kw">AND</span> tbl_ep.name = <span class="str">'MS_Description'</span>
+    <span class="kw">ORDER BY</span> c.column_id;
+<span class="kw">END</span>;</code></pre>
+      </div>
+    </div>
+
+    <h2>Resultado em Sales.Store</h2>
+    <p>No <code>AdventureWorks2025</code>, a tabela já traz <code>MS_Description</code> nas colunas e na própria tabela. A descrição da tabela, em todas as linhas, é: <em>Customers (resellers) of Adventure Works products.</em></p>
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <caption>Recorte do dicionário de <code>Sales.Store</code> (colunas, chaves e descrições).</caption>
+        <thead>
+          <tr>
+            <th scope="col">column_name</th>
+            <th scope="col">data_type</th>
+            <th scope="col">nullable</th>
+            <th scope="col">PK</th>
+            <th scope="col">referenced_object</th>
+            <th scope="col">default</th>
+            <th scope="col">column_description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>BusinessEntityID</td>
+            <td>int</td>
+            <td>NO</td>
+            <td>1</td>
+            <td>Person.BusinessEntity</td>
+            <td>—</td>
+            <td>Primary key. Foreign key to Customer.BusinessEntityID.</td>
+          </tr>
+          <tr>
+            <td>Name</td>
+            <td>Name</td>
+            <td>NO</td>
+            <td>1</td>
+            <td>—</td>
+            <td>—</td>
+            <td>Name of the store.</td>
+          </tr>
+          <tr>
+            <td>SalesPersonID</td>
+            <td>int</td>
+            <td>YES</td>
+            <td>1</td>
+            <td>Sales.SalesPerson</td>
+            <td>—</td>
+            <td>ID of the sales person assigned to the customer. Foreign key to SalesPerson.BusinessEntityID.</td>
+          </tr>
+          <tr>
+            <td>Demographics</td>
+            <td>xml</td>
+            <td>YES</td>
+            <td>1</td>
+            <td>—</td>
+            <td>—</td>
+            <td>Demographic informationg about the store such as the number of employees, annual sales and store type.</td>
+          </tr>
+          <tr>
+            <td>rowguid</td>
+            <td>uniqueidentifier</td>
+            <td>NO</td>
+            <td>1</td>
+            <td>—</td>
+            <td>(newid())</td>
+            <td>ROWGUIDCOL number uniquely identifying the record. Used to support a merge replication sample.</td>
+          </tr>
+          <tr>
+            <td>ModifiedDate</td>
+            <td>datetime</td>
+            <td>NO</td>
+            <td>1</td>
+            <td>—</td>
+            <td>(getdate())</td>
+            <td>Date and time the record was last updated.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>O export completo da consulta (incluindo <code>max_length</code>, <code>precision</code>, <code>scale</code>, identidade e descrição da tabela) está no repositório público <a href="https://github.com/matosdaniele/documentos-trilhas/tree/main/bancodedados/Guardar%20o%20significado%20do%20objeto%20no%20banco" rel="noopener noreferrer">documentos-trilhas / bancodedados / Guardar o significado do objeto no banco</a>.</p>
+    <p>A coluna PK aparece como <code>1</code> em todas as linhas porque a consulta marca a existência de chave primária na tabela, não a coluna participante — útil como alerta de modelo; para listar só as colunas da PK, o join com <code>sys.index_columns</code> seria o próximo ajuste.</p>
+
+    <h2>Em uma frase</h2>
+    <p>Guardar o significado com <code>MS_Description</code> deixa a documentação onde o objeto vive: o DBA e as ferramentas leem o dicionário direto do catálogo, e o modelo deixa de depender de um arquivo que ninguém atualiza.</p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>© 2026 Daniele de Lima Matos</p>
+      <nav class="footer-links" aria-label="Contato">
+        <a href="https://www.linkedin.com/in/matosdaniele/" rel="noopener noreferrer">LinkedIn</a>
+        <a href="mailto:matos.daniele@gmail.com">matos.daniele@gmail.com</a>
+        <a href="https://github.com/matosdaniele" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="../../assets/js/site.js" defer></script>
+</body>
+</html>

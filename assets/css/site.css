@@ -631,7 +631,8 @@ blockquote.note cite {
 
 .article p code,
 .article li code,
-.article td code {
+.article td code,
+.curriculum li code {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.92em;
   padding: 0.05em 0.28em;

@@ -1,12 +1,12 @@
 # Dicas da Dani
 
-Tutoriais e trilhas para quem tem interesse em dados.
+Tutoriais de administração de banco de dados com SQL Server.
 
 Site: [matosdaniele.github.io](https://matosdaniele.github.io/)
 
 O blog se organiza em quatro caminhos:
 
-1. **Fundamentos de Dados** — tipos de dados, estrutura de dados e arquitetura
-2. **Banco de Dados (SQL & NoSQL)** — consultas, otimização, administração (MSSQL · MongoDB) e ETL
-3. **Análise e Visualização** — Power BI, dashboards e storytelling
-4. **Programação para Dados** — Python, Git e limpeza de dados
+1. **Fundamentos de Banco de Dados** — do bit à página do SQL Server, tipos de dados, modelagem e documentação
+2. **Segurança e Acesso** — login e usuário, papéis, permissões, usuários órfãos e auditoria
+3. **Backup, Recuperação e Migração** — modelo de recuperação, backup e restore, integridade, rotinas do Agent e migração
+4. **Desempenho** — plano de execução, índices, estatísticas, esperas e Query Store

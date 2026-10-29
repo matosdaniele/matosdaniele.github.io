@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Fundamentos de Dados — Dicas da Dani</title>
-  <meta name="description" content="Trilha de fundamentos: tipos de dados, estrutura de dados e arquitetura.">
+  <title>Fundamentos de Banco de Dados — Dicas da Dani</title>
+  <meta name="description" content="Trilha de fundamentos de banco de dados: tipos de dados, como o SQL Server guarda o dado, modelagem e documentação do modelo.">
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,16 +27,17 @@
   <main id="conteudo" class="wrap track-page">
     <p class="crumbs"><a href="../index.html">Início</a> · <a href="../index.html#trilhas">Trilhas</a> · 01</p>
     <p class="eyebrow">Trilha 01</p>
-    <h1>Fundamentos de Dados</h1>
-    <p class="lede">Antes da ferramenta, o mapa: tipos de dados, como o dado se organiza, e a arquitetura onde ele vive.</p>
+    <h1>Fundamentos de Banco de Dados</h1>
+    <p class="lede">Antes de administrar, entender o que está guardado: o dado em bits, os tipos que o banco aceita, como o SQL Server organiza tudo em disco e como o modelo explica a si mesmo.</p>
 
     <div class="track-layout">
       <section class="curriculum">
         <h2>Nesta trilha</h2>
         <ol>
-          <li>Tipos de dados — número, texto, data, nulo: o que cada tipo permite e o que quebra na prática.</li>
-          <li>Estrutura de dados — como o dado se organiza antes de virar tabela, lista ou documento.</li>
-          <li>Arquitetura — camadas, de onde o dado vem e por onde a consulta passa.</li>
+          <li>Do bit ao byte — como o computador representa o dado antes de qualquer tabela.</li>
+          <li>Tipos de dados — número, texto, data, nulo: o que cada tipo permite, quanto ocupa e o que quebra na prática.</li>
+          <li>Como o SQL Server guarda o dado — páginas de 8 KB, extents e os arquivos de dados e de log.</li>
+          <li>Modelagem e documentação — chaves, relacionamentos e o significado de cada objeto guardado no próprio banco.</li>
         </ol>
       </section>
       <section class="coming">
@@ -46,49 +47,13 @@
             <a href="fundamentos/estrutura-de-dados.html">Estrutura de dados - Sistema Binário</a>
             <p>Dado, informação e conhecimento — e como o computador guarda o símbolo em bit, byte e hexadecimal.</p>
           </li>
+          <li>
+            <a href="fundamentos/guardar-significado-objetos.html">Guardar o significado do objeto no banco</a>
+            <p>Por que documentar tabelas e colunas com MS_Description (extended properties) e como montar o dicionário a partir do catálogo.</p>
+          </li>
         </ol>
       </section>
     </div>
-
-    <section class="content-example" aria-labelledby="formato-titulo">
-      <h2 id="formato-titulo">Formato dos tutoriais</h2>
-      <p>Os textos desta trilha usam blocos de código com botão de copiar e tabelas HTML nativas. Os números de linha não entram na leitura do código nem na cópia.</p>
-      <div class="code-block">
-        <div class="code-toolbar">
-          <span class="code-lang" id="sql-exemplo-label">SQL</span>
-          <button type="button" class="copy-code" aria-describedby="sql-exemplo-label">Copiar código</button>
-        </div>
-        <div class="code-scroll">
-          <pre class="code-gutter" aria-hidden="true">1
-2
-3</pre>
-          <pre class="code-source" tabindex="0"><code><span class="kw">SELECT</span> nome, cidade
-<span class="kw">FROM</span> clientes
-<span class="kw">WHERE</span> ativo = <span class="num">1</span>;</code></pre>
-        </div>
-      </div>
-      <div class="data-table-wrap">
-        <table class="data-table">
-          <caption>Clientes ativos retornados pela consulta de exemplo.</caption>
-          <thead>
-            <tr>
-              <th scope="col">nome</th>
-              <th scope="col">cidade</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Ana</td>
-              <td>Porto Alegre</td>
-            </tr>
-            <tr>
-              <td>Bruno</td>
-              <td>Curitiba</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
   </main>
 
   <footer class="site-footer">
