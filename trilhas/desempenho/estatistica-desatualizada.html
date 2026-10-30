@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estatística desatualizada, plano errado — Dicas da Dani</title>
+  <meta name="description" content="Como o SQL Server usa estatísticas para estimar linhas, como uma estatística desatualizada leva a um plano de execução ruim e como conferir e atualizar.">
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/css/site.css">
+</head>
+<body>
+  <a class="skip" href="#conteudo">Ir para o conteúdo</a>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="wordmark" href="../../index.html">Dicas da Dani</a>
+      <nav aria-label="Principal">
+        <a href="../../index.html">Início</a>
+        <a href="../../index.html#trilhas" aria-current="page">Trilhas</a>
+        <a href="../../sobre.html">Sobre</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="conteudo" class="wrap article">
+    <p class="crumbs"><a href="../../index.html">Início</a> · <a href="../desempenho.html">Desempenho</a> · Estatística desatualizada, plano errado</p>
+    <p class="eyebrow">Trilha 04 · tutorial</p>
+    <h1>Estatística desatualizada, plano errado</h1>
+    <p class="lede">O SQL Server escolhe o caminho de uma consulta a partir de quantas linhas ele acha que vai encontrar. Quem diz isso a ele são as estatísticas. Quando elas envelhecem, a estimativa erra, o plano erra junto, e a consulta que era rápida fica lenta sem ninguém ter mudado uma linha de código.</p>
+    <p>Exemplos para o <a href="../../index.html#ambiente-estudo-titulo">Microsoft SQL Server 2025 (RTM) 17.0.1000.7</a>, com a base <code>AdventureWorks2025</code>. A demonstração cria e apaga uma tabela própria; rode num ambiente de estudo, nunca em produção.</p>
+
+    <h2>O problema</h2>
+    <p>Um relatório que levava segundos passa a levar minutos. O código é o mesmo, o servidor é o mesmo, os índices são os mesmos. O que mudou foi o volume: entrou uma carga grande numa tabela, ou um valor que era raro ficou comum. O banco continua planejando a consulta com a fotografia antiga dos dados.</p>
+
+    <h2>O que é uma estatística</h2>
+    <p>Estatística é um resumo da distribuição dos valores de uma ou mais colunas. O otimizador de consultas lê esse resumo para estimar quantas linhas cada etapa da consulta vai devolver — e, com essa estimativa, decide se busca pelo índice ou lê a tabela inteira, que tipo de junção usa e quanta memória reserva.</p>
+    <dl class="terms">
+      <div>
+        <dt>Histograma</dt>
+        <dd>Até 200 faixas (steps) da primeira coluna da estatística, com quantas linhas existem em cada valor de corte e entre um corte e outro. O menor e o maior valor da coluna sempre viram faixas.</dd>
+      </div>
+      <div>
+        <dt>Densidade</dt>
+        <dd>Quanto os valores se repetem, em média. Entra na conta quando o valor procurado não é conhecido na hora de compilar.</dd>
+      </div>
+      <div>
+        <dt>Contador de modificações</dt>
+        <dd>Quantas alterações a coluna sofreu desde a última atualização da estatística. É o que indica que a fotografia envelheceu.</dd>
+      </div>
+    </dl>
+    <p>Todo índice ganha uma estatística com o mesmo nome. O SQL Server também cria estatísticas sozinho, em colunas usadas em filtros e junções, quando a opção <code>AUTO_CREATE_STATISTICS</code> está ligada — essas aparecem com nomes como <code>_WA_Sys_...</code>.</p>
+
+    <h2>Passo 1 — ver as estatísticas de uma tabela</h2>
+    <p>A consulta abaixo lista as estatísticas de <code>Sales.SalesOrderDetail</code>, com a data da última atualização, quantas linhas havia, quantas foram lidas para montar o resumo e quantas modificações aconteceram depois:</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-props-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-props-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">USE</span> AdventureWorks2025;
+<span class="kw">GO</span>
+
+<span class="kw">SELECT</span>
+  s.name                  <span class="kw">AS</span> estatistica,
+  s.auto_created          <span class="kw">AS</span> criada_pelo_banco,
+  sp.last_updated         <span class="kw">AS</span> atualizada_em,
+  sp.rows                 <span class="kw">AS</span> linhas,
+  sp.rows_sampled         <span class="kw">AS</span> linhas_lidas,
+  sp.modification_counter <span class="kw">AS</span> modificacoes
+<span class="kw">FROM</span> sys.stats <span class="kw">AS</span> s
+<span class="kw">CROSS APPLY</span> sys.dm_db_stats_properties(s.object_id, s.stats_id) <span class="kw">AS</span> sp
+<span class="kw">WHERE</span> s.object_id = <span class="kw">OBJECT_ID</span>(<span class="str">N'Sales.SalesOrderDetail'</span>)
+<span class="kw">ORDER BY</span> sp.modification_counter <span class="kw">DESC</span>;</code></pre>
+      </div>
+    </div>
+    <p>Quando <code>linhas_lidas</code> é menor que <code>linhas</code>, a estatística foi montada por amostragem. Em tabelas grandes isso é normal, mas uma amostra pequena pode não enxergar valores raros — outra origem de estimativa errada.</p>
+
+    <h2>Passo 2 — ler o histograma</h2>
+    <p>O histograma mostra o que o otimizador “sabe” sobre cada faixa de valores. Para a estatística do índice de <code>ProductID</code>:</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-hist-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-hist-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">SELECT</span>
+  h.step_number,
+  h.range_high_key     <span class="kw">AS</span> valor_de_corte,
+  h.equal_rows         <span class="kw">AS</span> linhas_no_valor,
+  h.range_rows         <span class="kw">AS</span> linhas_entre_cortes,
+  h.average_range_rows <span class="kw">AS</span> media_por_valor_entre_cortes
+<span class="kw">FROM</span> sys.stats <span class="kw">AS</span> s
+<span class="kw">CROSS APPLY</span> sys.dm_db_stats_histogram(s.object_id, s.stats_id) <span class="kw">AS</span> h
+<span class="kw">WHERE</span> s.object_id = <span class="kw">OBJECT_ID</span>(<span class="str">N'Sales.SalesOrderDetail'</span>)
+  <span class="kw">AND</span> s.name = <span class="str">N'IX_SalesOrderDetail_ProductID'</span>
+<span class="kw">ORDER BY</span> h.step_number;</code></pre>
+      </div>
+    </div>
+    <p>Se a consulta filtra <code>ProductID = 870</code> e 870 é um valor de corte, a estimativa sai de <code>linhas_no_valor</code>. Se o valor cai entre dois cortes, sai de <code>media_por_valor_entre_cortes</code>. O <code>DBCC SHOW_STATISTICS</code> mostra o mesmo conteúdo, em formato mais antigo.</p>
+
+    <h2>Passo 3 — montar o cenário</h2>
+    <p>Para ver o efeito sem esperar o problema acontecer, a demonstração cria uma cópia dos itens de pedido com um produto que existe em <strong>uma</strong> linha só. O índice é criado nesse momento — e a estatística dele registra que o produto 9999 é raro.</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-cenario-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-cenario-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">SELECT</span> SalesOrderID, SalesOrderDetailID, ProductID, OrderQty, UnitPrice
+<span class="kw">INTO</span> dbo.DemoItemPedido
+<span class="kw">FROM</span> Sales.SalesOrderDetail;
+
+<span class="cmt">-- O produto 9999 começa com uma única linha</span>
+<span class="kw">INSERT INTO</span> dbo.DemoItemPedido (SalesOrderID, SalesOrderDetailID, ProductID, OrderQty, UnitPrice)
+<span class="kw">VALUES</span> (<span class="num">43659</span>, <span class="num">9000000</span>, <span class="num">9999</span>, <span class="num">1</span>, <span class="num">10.00</span>);
+
+<span class="kw">CREATE CLUSTERED INDEX</span> CX_DemoItemPedido
+  <span class="kw">ON</span> dbo.DemoItemPedido (SalesOrderID, SalesOrderDetailID);
+
+<span class="cmt">-- NORECOMPUTE impede a atualização automática desta estatística</span>
+<span class="kw">CREATE INDEX</span> IX_DemoItemPedido_ProductID
+  <span class="kw">ON</span> dbo.DemoItemPedido (ProductID)
+  <span class="kw">WITH</span> (STATISTICS_NORECOMPUTE = <span class="kw">ON</span>);
+
+<span class="cmt">-- Uma carga grande: o produto 9999 passa a ter 100 mil linhas a mais</span>
+<span class="kw">INSERT INTO</span> dbo.DemoItemPedido (SalesOrderID, SalesOrderDetailID, ProductID, OrderQty, UnitPrice)
+<span class="kw">SELECT TOP</span> (<span class="num">100000</span>) SalesOrderID, SalesOrderDetailID + <span class="num">1000000</span>, <span class="num">9999</span>, OrderQty, UnitPrice
+<span class="kw">FROM</span> Sales.SalesOrderDetail;</code></pre>
+      </div>
+    </div>
+    <p>O <code>STATISTICS_NORECOMPUTE = ON</code> existe só para a demonstração: ele desliga a atualização automática daquela estatística e garante que a fotografia antiga continue lá. Na vida real o efeito aparece sem essa opção — quando a carga não chega ao limite que dispara a atualização, ou quando a atualização acontece por amostragem e não enxerga a mudança.</p>
+
+    <h2>Passo 4 — ver a estimativa errar</h2>
+    <p>No SSMS, ligue o plano de execução real (<kbd>Ctrl</kbd> + <kbd>M</kbd>) e rode a consulta com as medições de leitura e tempo:</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-antes-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-antes-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">SET STATISTICS IO</span>, <span class="kw">TIME ON</span>;
+
+<span class="kw">SELECT</span> SalesOrderID, ProductID, OrderQty, UnitPrice
+<span class="kw">FROM</span> dbo.DemoItemPedido
+<span class="kw">WHERE</span> ProductID = <span class="num">9999</span>;</code></pre>
+      </div>
+    </div>
+    <p>Passe o mouse sobre o operador de leitura do índice e compare dois números:</p>
+    <ul>
+      <li><strong>Número estimado de linhas</strong> (Estimated Number of Rows): poucas linhas, porque a estatística ainda diz que o produto 9999 é raro.</li>
+      <li><strong>Número real de linhas</strong> (Actual Number of Rows): 100.001.</li>
+    </ul>
+    <p>Confiando na estimativa, o otimizador escolhe buscar no índice de <code>ProductID</code> (Index Seek) e, para cada linha encontrada, ir à tabela buscar <code>OrderQty</code> e <code>UnitPrice</code> (Key Lookup). Para poucas linhas é o caminho certo. Para 100 mil, são 100 mil idas à tabela — e a aba <strong>Mensagens</strong> mostra isso em <code>logical reads</code> muito acima do tamanho da própria tabela.</p>
+
+    <h2>Passo 5 — atualizar e comparar</h2>
+    <p>Atualize a estatística lendo a tabela inteira e rode a mesma consulta de novo:</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-depois-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-depois-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">UPDATE STATISTICS</span> dbo.DemoItemPedido IX_DemoItemPedido_ProductID
+  <span class="kw">WITH</span> FULLSCAN;
+
+<span class="kw">SELECT</span> SalesOrderID, ProductID, OrderQty, UnitPrice
+<span class="kw">FROM</span> dbo.DemoItemPedido
+<span class="kw">WHERE</span> ProductID = <span class="num">9999</span>;</code></pre>
+      </div>
+    </div>
+    <p>Agora a estimativa fica perto das 100 mil linhas, e o plano muda: o otimizador lê a tabela inteira de uma vez (Clustered Index Scan), em vez de fazer 100 mil buscas. As <code>logical reads</code> caem para algo próximo do número de páginas da tabela. Nada no código mudou — só a informação que o banco tinha sobre os dados.</p>
+    <p>A estatística atualizada invalida o plano guardado em cache, e a próxima execução é compilada de novo com os números novos. Por isso não é preciso limpar o cache para ver a diferença.</p>
+
+    <h2>Quando o banco atualiza sozinho</h2>
+    <p>Com <code>AUTO_UPDATE_STATISTICS</code> ligado (o padrão), o SQL Server atualiza uma estatística quando ela vai ser usada e o contador de modificações passou do limite. Desde o nível de compatibilidade 130 (SQL Server 2016), o limite é o menor entre 500 + 20% das linhas e a raiz quadrada de 1.000 × linhas. Numa tabela de 10 milhões de linhas, isso dá 100 mil modificações.</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-opcoes-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-opcoes-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">SELECT</span>
+  name,
+  compatibility_level,
+  is_auto_create_stats_on,
+  is_auto_update_stats_on,
+  is_auto_update_stats_async_on
+<span class="kw">FROM</span> sys.databases
+<span class="kw">WHERE</span> name = <span class="str">N'AdventureWorks2025'</span>;</code></pre>
+      </div>
+    </div>
+    <p>A atualização automática ajuda, mas não cobre tudo: ela usa amostragem, só acontece quando a estatística é usada, e uma carga logo antes de um relatório pode cair abaixo do limite. Colunas de data ou de código sequencial sofrem mais — os valores novos ficam sempre além do último corte do histograma.</p>
+
+    <h2>Uma rotina para não depender da sorte</h2>
+    <p>A consulta abaixo lista, no banco inteiro, as estatísticas com mais modificações em proporção ao tamanho da tabela. É um bom ponto de partida para decidir o que atualizar fora do horário de uso:</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-rotina-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-rotina-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">SELECT</span>
+  <span class="kw">OBJECT_SCHEMA_NAME</span>(s.object_id) <span class="kw">AS</span> esquema,
+  <span class="kw">OBJECT_NAME</span>(s.object_id)        <span class="kw">AS</span> tabela,
+  s.name                          <span class="kw">AS</span> estatistica,
+  sp.last_updated                 <span class="kw">AS</span> atualizada_em,
+  sp.rows                         <span class="kw">AS</span> linhas,
+  sp.modification_counter         <span class="kw">AS</span> modificacoes,
+  <span class="kw">CAST</span>(<span class="num">100.0</span> * sp.modification_counter / <span class="kw">NULLIF</span>(sp.rows, <span class="num">0</span>) <span class="kw">AS DECIMAL</span>(<span class="num">12</span>, <span class="num">1</span>)) <span class="kw">AS</span> pct_modificado
+<span class="kw">FROM</span> sys.stats <span class="kw">AS</span> s
+<span class="kw">CROSS APPLY</span> sys.dm_db_stats_properties(s.object_id, s.stats_id) <span class="kw">AS</span> sp
+<span class="kw">WHERE</span> <span class="kw">OBJECTPROPERTY</span>(s.object_id, <span class="str">'IsUserTable'</span>) = <span class="num">1</span>
+  <span class="kw">AND</span> sp.modification_counter &gt; <span class="num">0</span>
+<span class="kw">ORDER BY</span> pct_modificado <span class="kw">DESC</span>;</code></pre>
+      </div>
+    </div>
+    <p>Alguns cuidados na hora de atualizar:</p>
+    <ul>
+      <li><code>UPDATE STATISTICS ... WITH FULLSCAN</code> lê a tabela inteira: estimativa melhor, custo maior. Em tabelas muito grandes, <code>WITH SAMPLE 25 PERCENT</code> é um meio-termo.</li>
+      <li><code>sp_updatestats</code> atualiza tudo que teve alguma modificação, com amostragem padrão — e pode trocar por uma amostra pequena uma estatística que tinha sido montada com <code>FULLSCAN</code>.</li>
+      <li>Reconstruir um índice (<code>ALTER INDEX ... REBUILD</code>) atualiza a estatística daquele índice lendo a tabela inteira. Reorganizar (<code>REORGANIZE</code>) não atualiza nada.</li>
+      <li>Depois de uma carga grande, atualizar as estatísticas das tabelas carregadas faz parte da carga — não precisa esperar o relatório ficar lento.</li>
+    </ul>
+
+    <h2>Limpar o ambiente</h2>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-limpar-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-limpar-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">SET STATISTICS IO</span>, <span class="kw">TIME OFF</span>;
+<span class="kw">DROP TABLE IF EXISTS</span> dbo.DemoItemPedido;</code></pre>
+      </div>
+    </div>
+
+    <h2>Para levar</h2>
+    <ul>
+      <li>Consulta que ficou lenta sem mudança de código: compare linhas estimadas e reais no plano antes de criar índice ou reescrever a consulta.</li>
+      <li>Diferença grande entre as duas é sinal de estatística desatualizada ou montada com amostra pequena.</li>
+      <li><code>sys.dm_db_stats_properties</code> mostra quando cada estatística foi atualizada e quanto a tabela mudou desde então.</li>
+      <li>Depois de cargas grandes, atualize as estatísticas das tabelas carregadas como parte do processo.</li>
+    </ul>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>© 2026 Daniele de Lima Matos</p>
+      <nav class="footer-links" aria-label="Contato">
+        <a href="https://www.linkedin.com/in/matosdaniele/" rel="noopener noreferrer">LinkedIn</a>
+        <a href="mailto:matos.daniele@gmail.com">matos.daniele@gmail.com</a>
+        <a href="https://github.com/matosdaniele" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="../../assets/js/site.js" defer></script>
+</body>
+</html>
