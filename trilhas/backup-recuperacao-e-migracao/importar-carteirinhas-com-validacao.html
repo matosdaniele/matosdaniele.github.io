@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Importar carteirinhas pela aplicação, com validação no banco — Dicas da Dani</title>
+  <meta name="description" content="Caso real em formato Problema, Ação e Resultado: tirar a importação de carteirinhas das mãos do DBA e validar cada linha no banco com trigger e log para a aplicação.">
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/css/site.css">
+</head>
+<body>
+  <a class="skip" href="#conteudo">Ir para o conteúdo</a>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="wordmark" href="../../index.html">Dicas da Dani</a>
+      <nav aria-label="Principal">
+        <a href="../../index.html">Início</a>
+        <a href="../../index.html#trilhas" aria-current="page">Trilhas</a>
+        <a href="../../sobre.html">Sobre</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="conteudo" class="wrap article">
+    <p class="crumbs"><a href="../../index.html">Início</a> · <a href="../backup-recuperacao-e-migracao.html">Backup, Recuperação e Migração</a> · Importar carteirinhas com validação no banco</p>
+    <p class="eyebrow">Trilha 03 · caso real</p>
+    <h1>Importar carteirinhas pela aplicação, com validação no banco</h1>
+    <p class="lede">A planilha de carteirinhas do cliente era carregada direto no banco pelo DBA. A importação passou para a aplicação, e o banco ficou responsável por decidir, linha a linha, o que entra, o que troca e o que é recusado — e por explicar o motivo.</p>
+    <p>Caso real, com a solução no banco desenvolvida por Daniele de Lima Matos. Os nomes de tabelas e colunas foram trocados por exemplos genéricos. Os scripts mostram a técnica em T-SQL; adapte nomes, tipos e regras ao seu modelo e teste em homologação antes de rodar em produção.</p>
+
+    <h2>Resumo do caso</h2>
+    <dl class="terms">
+      <div>
+        <dt>Problema</dt>
+        <dd>A importação das carteirinhas dos indivíduos era feita pelo analista de banco de dados, direto no banco, a partir da planilha enviada pelo cliente.</dd>
+      </div>
+      <div>
+        <dt>Ação</dt>
+        <dd>A aplicação ganhou uma tela para importar a planilha para uma tabela do banco. Um gatilho (trigger) nessa tabela valida cada linha: recusa carteirinha que já pertence a outro indivíduo, desativa a carteirinha anterior quando chega uma nova, registra a data da importação e grava um log com a situação de cada linha.</dd>
+      </div>
+      <div>
+        <dt>Resultado</dt>
+        <dd>As carteirinhas passaram a ser importadas pela própria aplicação. Quando havia algum ponto de atenção, o banco gerava um log e a aplicação mostrava o aviso ao usuário final.</dd>
+      </div>
+    </dl>
+
+    <h2>O problema: a carga dependia de uma pessoa</h2>
+    <p>Importar direto no banco funciona enquanto a planilha vem certa e o DBA está disponível. Com o tempo, os riscos aparecem:</p>
+    <ul>
+      <li>Cada nova planilha vira um pedido para o DBA, e o cliente espera a fila.</li>
+      <li>Um número de carteirinha que já pertence a outro indivíduo pode entrar sem ninguém perceber.</li>
+      <li>O indivíduo que recebe uma carteirinha nova pode ficar com duas ativas.</li>
+      <li>Não fica registrado quando cada carteirinha entrou, nem o que foi recusado e por quê.</li>
+    </ul>
+    <p>Só levar a importação para a aplicação não resolve: a planilha continua podendo trazer os mesmos erros. A importação precisa vir junto com as regras.</p>
+
+    <h2>As regras da importação</h2>
+    <p>Antes de escrever qualquer código, cada situação possível de uma linha da planilha ganhou uma decisão e um registro no log:</p>
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <caption>O que o banco faz com cada linha da planilha.</caption>
+        <thead>
+          <tr>
+            <th scope="col">Situação da linha</th>
+            <th scope="col">O que o banco faz</th>
+            <th scope="col">Situação no log</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Carteirinha nova, indivíduo sem carteirinha ativa</td><td>Insere a carteirinha já ativa</td><td><code>IMPORTADA</code></td></tr>
+          <tr><td>Carteirinha nova, indivíduo com carteirinha ativa</td><td>Desativa a anterior e insere a nova ativa</td><td><code>TROCA</code></td></tr>
+          <tr><td>Carteirinha já cadastrada para o mesmo indivíduo</td><td>Não altera nada</td><td><code>JA_CADASTRADA</code></td></tr>
+          <tr><td>Carteirinha já cadastrada para outro indivíduo</td><td>Não importa</td><td><code>RECUSADA</code></td></tr>
+          <tr><td>Indivíduo que não existe no cadastro</td><td>Não importa</td><td><code>RECUSADA</code></td></tr>
+          <tr><td>Número repetido na própria planilha, ou indivíduo com duas carteirinhas novas</td><td>Não importa nenhuma das linhas envolvidas</td><td><code>RECUSADA</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>As duas últimas linhas da tabela não estavam no pedido original, mas aparecem em qualquer planilha preenchida à mão. Decidir antes evita que o banco escolha sozinho qual das linhas repetidas vale.</p>
+
+    <h2>A ação, passo a passo</h2>
+
+    <h3>1. Cadastro, área de importação e log</h3>
+    <p>São três tabelas com papéis separados. A <code>Carteirinha</code> é o cadastro oficial. A <code>ImportacaoCarteirinha</code> recebe as linhas da planilha exatamente como vieram, pela aplicação. A <code>LogImportacaoCarteirinha</code> guarda o que aconteceu com cada linha. A tabela <code>Individuo</code> já existia no sistema.</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-tabelas-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-tabelas-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="cmt">-- Cadastro oficial: uma linha por carteirinha, ativa ou não</span>
+<span class="kw">CREATE TABLE</span> dbo.Carteirinha (
+  CarteirinhaID     <span class="kw">INT IDENTITY</span>(<span class="num">1</span>, <span class="num">1</span>) <span class="kw">PRIMARY KEY</span>,
+  IndividuoID       <span class="kw">INT</span>          <span class="kw">NOT NULL REFERENCES</span> dbo.Individuo (IndividuoID),
+  NumeroCarteirinha <span class="kw">VARCHAR</span>(<span class="num">30</span>)  <span class="kw">NOT NULL</span>,
+  Ativa             <span class="kw">BIT</span>          <span class="kw">NOT NULL</span>,
+  LoteID            <span class="kw">INT</span>          <span class="kw">NULL</span>,
+  DataImportacao    <span class="kw">DATETIME2</span>(<span class="num">0</span>) <span class="kw">NOT NULL</span>,
+  DataDesativacao   <span class="kw">DATETIME2</span>(<span class="num">0</span>) <span class="kw">NULL</span>
+);
+
+<span class="cmt">-- Área de importação: recebe as linhas da planilha enviadas pela aplicação</span>
+<span class="kw">CREATE TABLE</span> dbo.ImportacaoCarteirinha (
+  ImportacaoID      <span class="kw">INT IDENTITY</span>(<span class="num">1</span>, <span class="num">1</span>) <span class="kw">PRIMARY KEY</span>,
+  LoteID            <span class="kw">INT</span>          <span class="kw">NOT NULL</span>,
+  IndividuoID       <span class="kw">INT</span>          <span class="kw">NOT NULL</span>,
+  NumeroCarteirinha <span class="kw">VARCHAR</span>(<span class="num">30</span>)  <span class="kw">NOT NULL</span>,
+  UsuarioAplicacao  <span class="kw">VARCHAR</span>(<span class="num">100</span>) <span class="kw">NOT NULL</span>,
+  DataImportacao    <span class="kw">DATETIME2</span>(<span class="num">0</span>) <span class="kw">NOT NULL DEFAULT SYSDATETIME</span>()
+);
+
+<span class="cmt">-- Log: uma linha para cada linha da planilha, com a situação e o motivo</span>
+<span class="kw">CREATE TABLE</span> dbo.LogImportacaoCarteirinha (
+  LogID             <span class="kw">INT IDENTITY</span>(<span class="num">1</span>, <span class="num">1</span>) <span class="kw">PRIMARY KEY</span>,
+  ImportacaoID      <span class="kw">INT</span>           <span class="kw">NOT NULL</span>,
+  LoteID            <span class="kw">INT</span>           <span class="kw">NOT NULL</span>,
+  IndividuoID       <span class="kw">INT</span>           <span class="kw">NOT NULL</span>,
+  NumeroCarteirinha <span class="kw">VARCHAR</span>(<span class="num">30</span>)   <span class="kw">NOT NULL</span>,
+  Situacao          <span class="kw">VARCHAR</span>(<span class="num">20</span>)   <span class="kw">NOT NULL</span>,
+  Mensagem          <span class="kw">NVARCHAR</span>(<span class="num">400</span>) <span class="kw">NOT NULL</span>,
+  DataLog           <span class="kw">DATETIME2</span>(<span class="num">0</span>)  <span class="kw">NOT NULL</span>
+);</code></pre>
+      </div>
+    </div>
+    <p>O <code>LoteID</code> identifica cada planilha enviada: a aplicação gera um número por arquivo, e é por ele que a tela de importação consulta o resultado. A carteirinha desativada não é apagada — fica com <code>Ativa = 0</code> e a data de desativação, e o histórico do indivíduo continua completo.</p>
+
+    <h3>2. Regras que o próprio banco garante</h3>
+    <p>Duas regras não podem depender só do gatilho: um número de carteirinha pertence a um único indivíduo, e cada indivíduo tem no máximo uma carteirinha ativa. Índices únicos garantem isso para qualquer caminho de escrita, inclusive uma correção manual feita direto no banco:</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-indices-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-indices-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="cmt">-- Um número de carteirinha pertence a um único indivíduo</span>
+<span class="kw">CREATE UNIQUE INDEX</span> UX_Carteirinha_Numero
+  <span class="kw">ON</span> dbo.Carteirinha (NumeroCarteirinha);
+
+<span class="cmt">-- Cada indivíduo tem no máximo uma carteirinha ativa</span>
+<span class="kw">CREATE UNIQUE INDEX</span> UX_Carteirinha_UmaAtiva
+  <span class="kw">ON</span> dbo.Carteirinha (IndividuoID)
+  <span class="kw">WHERE</span> Ativa = <span class="num">1</span>;
+
+<span class="cmt">-- A tela da aplicação consulta o log por lote</span>
+<span class="kw">CREATE INDEX</span> IX_LogImportacao_Lote
+  <span class="kw">ON</span> dbo.LogImportacaoCarteirinha (LoteID);</code></pre>
+      </div>
+    </div>
+    <p>O segundo é um índice filtrado: a unicidade vale só para as linhas com <code>Ativa = 1</code>, então o indivíduo pode ter quantas carteirinhas inativas precisar. Para gravar numa tabela com índice filtrado, a sessão precisa de <code>QUOTED_IDENTIFIER ON</code> e <code>ANSI_NULLS ON</code> — o padrão dos drivers atuais, mas vale conferir em aplicações antigas.</p>
+
+    <h3>3. O gatilho que valida cada linha</h3>
+    <p>O gatilho dispara depois que a aplicação grava as linhas da planilha na área de importação. Ele classifica cada linha, desativa as carteirinhas que vão ser trocadas, insere as novas e grava o log — tudo na mesma transação da importação.</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-trigger-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-trigger-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">CREATE OR ALTER TRIGGER</span> dbo.trg_ImportacaoCarteirinha_Validar
+<span class="kw">ON</span> dbo.ImportacaoCarteirinha
+<span class="kw">AFTER INSERT</span>
+<span class="kw">AS</span>
+<span class="kw">BEGIN</span>
+  <span class="kw">SET NOCOUNT ON</span>;
+
+  <span class="kw">DECLARE</span> @agora <span class="kw">DATETIME2</span>(<span class="num">0</span>) = <span class="kw">SYSDATETIME</span>();
+
+  <span class="cmt">-- 1. Classifica cada linha da planilha</span>
+  <span class="kw">WITH</span> linhas <span class="kw">AS</span> (
+    <span class="kw">SELECT</span>
+      i.ImportacaoID, i.LoteID, i.IndividuoID, i.NumeroCarteirinha,
+      ind.IndividuoID         <span class="kw">AS</span> IndividuoCadastrado,
+      c.IndividuoID           <span class="kw">AS</span> DonoCarteirinha,
+      atual.CarteirinhaID     <span class="kw">AS</span> AnteriorID,
+      atual.NumeroCarteirinha <span class="kw">AS</span> AnteriorNumero,
+      <span class="kw">COUNT</span>(*) <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> i.NumeroCarteirinha) <span class="kw">AS</span> RepeticoesNumero,
+      <span class="kw">SUM</span>(<span class="kw">CASE WHEN</span> c.CarteirinhaID <span class="kw">IS NULL THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>)
+        <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> i.IndividuoID) <span class="kw">AS</span> NovasDoIndividuo
+    <span class="kw">FROM</span> inserted <span class="kw">AS</span> i
+    <span class="kw">LEFT JOIN</span> dbo.Individuo <span class="kw">AS</span> ind
+      <span class="kw">ON</span> ind.IndividuoID = i.IndividuoID
+    <span class="kw">LEFT JOIN</span> dbo.Carteirinha <span class="kw">AS</span> c
+      <span class="kw">ON</span> c.NumeroCarteirinha = i.NumeroCarteirinha
+    <span class="kw">LEFT JOIN</span> dbo.Carteirinha <span class="kw">AS</span> atual
+      <span class="kw">ON</span> atual.IndividuoID = i.IndividuoID
+     <span class="kw">AND</span> atual.Ativa = <span class="num">1</span>
+  )
+  <span class="kw">SELECT</span>
+    ImportacaoID, LoteID, IndividuoID, NumeroCarteirinha, AnteriorID,
+    <span class="kw">CASE</span>
+      <span class="kw">WHEN</span> IndividuoCadastrado <span class="kw">IS NULL</span>    <span class="kw">THEN</span> <span class="str">'RECUSADA'</span>
+      <span class="kw">WHEN</span> RepeticoesNumero &gt; <span class="num">1</span>           <span class="kw">THEN</span> <span class="str">'RECUSADA'</span>
+      <span class="kw">WHEN</span> DonoCarteirinha &lt;&gt; IndividuoID <span class="kw">THEN</span> <span class="str">'RECUSADA'</span>
+      <span class="kw">WHEN</span> DonoCarteirinha = IndividuoID  <span class="kw">THEN</span> <span class="str">'JA_CADASTRADA'</span>
+      <span class="kw">WHEN</span> NovasDoIndividuo &gt; <span class="num">1</span>           <span class="kw">THEN</span> <span class="str">'RECUSADA'</span>
+      <span class="kw">WHEN</span> AnteriorID <span class="kw">IS NOT NULL</span>         <span class="kw">THEN</span> <span class="str">'TROCA'</span>
+      <span class="kw">ELSE</span> <span class="str">'IMPORTADA'</span>
+    <span class="kw">END AS</span> Situacao,
+    <span class="kw">CASE</span>
+      <span class="kw">WHEN</span> IndividuoCadastrado <span class="kw">IS NULL</span>
+        <span class="kw">THEN</span> <span class="str">N'Indivíduo não encontrado no cadastro. A carteirinha não foi importada.'</span>
+      <span class="kw">WHEN</span> RepeticoesNumero &gt; <span class="num">1</span>
+        <span class="kw">THEN</span> <span class="str">N'Número de carteirinha repetido na planilha. Nenhuma das linhas foi importada.'</span>
+      <span class="kw">WHEN</span> DonoCarteirinha &lt;&gt; IndividuoID
+        <span class="kw">THEN CONCAT</span>(<span class="str">N'Carteirinha já cadastrada para o indivíduo '</span>, DonoCarteirinha, <span class="str">N'. Não foi importada.'</span>)
+      <span class="kw">WHEN</span> DonoCarteirinha = IndividuoID
+        <span class="kw">THEN</span> <span class="str">N'Carteirinha já cadastrada para este indivíduo. Nada foi alterado.'</span>
+      <span class="kw">WHEN</span> NovasDoIndividuo &gt; <span class="num">1</span>
+        <span class="kw">THEN</span> <span class="str">N'Indivíduo com mais de uma carteirinha nova na planilha. Nenhuma foi importada.'</span>
+      <span class="kw">WHEN</span> AnteriorID <span class="kw">IS NOT NULL</span>
+        <span class="kw">THEN CONCAT</span>(<span class="str">N'Carteirinha importada e ativada. A anterior ('</span>, AnteriorNumero, <span class="str">N') foi desativada.'</span>)
+      <span class="kw">ELSE</span> <span class="str">N'Carteirinha importada e ativada.'</span>
+    <span class="kw">END AS</span> Mensagem
+  <span class="kw">INTO</span> #analise
+  <span class="kw">FROM</span> linhas;
+
+  <span class="cmt">-- 2. Desativa a carteirinha anterior de quem recebeu uma nova</span>
+  <span class="kw">UPDATE</span> c
+  <span class="kw">SET</span> Ativa = <span class="num">0</span>,
+      DataDesativacao = @agora
+  <span class="kw">FROM</span> dbo.Carteirinha <span class="kw">AS</span> c
+  <span class="kw">JOIN</span> #analise <span class="kw">AS</span> a
+    <span class="kw">ON</span> a.AnteriorID = c.CarteirinhaID
+  <span class="kw">WHERE</span> a.Situacao = <span class="str">'TROCA'</span>;
+
+  <span class="cmt">-- 3. Insere as carteirinhas novas, já ativas e com a data da importação</span>
+  <span class="kw">INSERT INTO</span> dbo.Carteirinha (IndividuoID, NumeroCarteirinha, Ativa, LoteID, DataImportacao)
+  <span class="kw">SELECT</span> IndividuoID, NumeroCarteirinha, <span class="num">1</span>, LoteID, @agora
+  <span class="kw">FROM</span> #analise
+  <span class="kw">WHERE</span> Situacao <span class="kw">IN</span> (<span class="str">'IMPORTADA'</span>, <span class="str">'TROCA'</span>);
+
+  <span class="cmt">-- 4. Registra a situação de cada linha para a aplicação</span>
+  <span class="kw">INSERT INTO</span> dbo.LogImportacaoCarteirinha
+    (ImportacaoID, LoteID, IndividuoID, NumeroCarteirinha, Situacao, Mensagem, DataLog)
+  <span class="kw">SELECT</span> ImportacaoID, LoteID, IndividuoID, NumeroCarteirinha, Situacao, Mensagem, @agora
+  <span class="kw">FROM</span> #analise;
+<span class="kw">END</span>;</code></pre>
+      </div>
+    </div>
+    <p>Três cuidados sustentam esse gatilho:</p>
+    <ul>
+      <li><strong>Ele trata o lote inteiro de uma vez.</strong> No SQL Server, o gatilho dispara uma vez por comando, e a tabela <code>inserted</code> traz todas as linhas daquele comando. Um gatilho escrito como se só chegasse uma linha — com <code>SELECT @numero = NumeroCarteirinha FROM inserted</code>, por exemplo — valida só uma linha da planilha e deixa o resto passar.</li>
+      <li><strong>A ordem do <code>CASE</code> é a ordem das regras.</strong> O banco testa da mais grave para a mais simples e para na primeira que vale. Por isso a carteirinha de outro indivíduo é recusada antes de se pensar em troca.</li>
+      <li><strong>Desativar vem antes de inserir.</strong> Se a nova carteirinha entrasse primeiro, o indivíduo teria duas ativas por um instante, e o índice <code>UX_Carteirinha_UmaAtiva</code> barraria a importação.</li>
+    </ul>
+    <p>As verificações de “repetido na planilha” enxergam as linhas de um mesmo comando. A aplicação deve gravar o arquivo inteiro de uma vez — com inserção em lote ou um parâmetro do tipo tabela — e não linha a linha. Se algo falhar no meio, a importação inteira volta, e nenhum lote fica pela metade.</p>
+
+    <h3>4. Testar com uma planilha de exemplo</h3>
+    <p>Um lote pequeno, com uma linha para cada regra, mostra se o gatilho decide como o esperado. No cenário abaixo, os indivíduos 10, 20, 30 e 40 existem no cadastro; o 10 tem a carteirinha <code>A-100</code> ativa e o 20 tem a <code>B-200</code> ativa.</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-teste-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-teste-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="kw">INSERT INTO</span> dbo.ImportacaoCarteirinha (LoteID, IndividuoID, NumeroCarteirinha, UsuarioAplicacao)
+<span class="kw">VALUES</span>
+  (<span class="num">1</span>, <span class="num">10</span>, <span class="str">'A-101'</span>, <span class="str">'joana.lima'</span>),  <span class="cmt">-- nova para quem já tem: troca</span>
+  (<span class="num">1</span>, <span class="num">30</span>, <span class="str">'C-300'</span>, <span class="str">'joana.lima'</span>),  <span class="cmt">-- primeira carteirinha: importada</span>
+  (<span class="num">1</span>, <span class="num">20</span>, <span class="str">'B-200'</span>, <span class="str">'joana.lima'</span>),  <span class="cmt">-- já é dele: nada muda</span>
+  (<span class="num">1</span>, <span class="num">40</span>, <span class="str">'A-100'</span>, <span class="str">'joana.lima'</span>),  <span class="cmt">-- pertence ao 10: recusada</span>
+  (<span class="num">1</span>, <span class="num">99</span>, <span class="str">'D-400'</span>, <span class="str">'joana.lima'</span>);  <span class="cmt">-- indivíduo inexistente: recusada</span>
+
+<span class="kw">SELECT</span> IndividuoID, NumeroCarteirinha, Situacao, Mensagem
+<span class="kw">FROM</span> dbo.LogImportacaoCarteirinha
+<span class="kw">WHERE</span> LoteID = <span class="num">1</span>
+<span class="kw">ORDER BY</span> ImportacaoID;</code></pre>
+      </div>
+    </div>
+    <p>O log esperado para esse lote:</p>
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <caption>Uma linha de log para cada linha da planilha.</caption>
+        <thead>
+          <tr>
+            <th scope="col">IndividuoID</th>
+            <th scope="col">NumeroCarteirinha</th>
+            <th scope="col">Situacao</th>
+            <th scope="col">Mensagem</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>10</td><td><code>A-101</code></td><td><code>TROCA</code></td><td>Carteirinha importada e ativada. A anterior (A-100) foi desativada.</td></tr>
+          <tr><td>30</td><td><code>C-300</code></td><td><code>IMPORTADA</code></td><td>Carteirinha importada e ativada.</td></tr>
+          <tr><td>20</td><td><code>B-200</code></td><td><code>JA_CADASTRADA</code></td><td>Carteirinha já cadastrada para este indivíduo. Nada foi alterado.</td></tr>
+          <tr><td>40</td><td><code>A-100</code></td><td><code>RECUSADA</code></td><td>Carteirinha já cadastrada para o indivíduo 10. Não foi importada.</td></tr>
+          <tr><td>99</td><td><code>D-400</code></td><td><code>RECUSADA</code></td><td>Indivíduo não encontrado no cadastro. A carteirinha não foi importada.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Depois do teste, a <code>Carteirinha</code> deve mostrar a <code>A-100</code> inativa com data de desativação, e a <code>A-101</code> e a <code>C-300</code> ativas com a data da importação. Vale repetir o teste com uma planilha que traga o mesmo número duas vezes, para ver as duas linhas recusadas.</p>
+
+    <h3>5. Mostrar o resultado na aplicação</h3>
+    <p>Com o log gravado, a tela de importação não precisa repetir nenhuma regra: ela só lê o que o banco decidiu para aquele lote.</p>
+    <div class="code-block">
+      <div class="code-toolbar">
+        <span class="code-lang" id="sql-tela-label">T-SQL</span>
+        <button type="button" class="copy-code" aria-describedby="sql-tela-label">Copiar código</button>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-gutter" aria-hidden="true"></pre>
+        <pre class="code-source" tabindex="0"><code><span class="cmt">-- Resumo do lote: quantas linhas em cada situação</span>
+<span class="kw">SELECT</span> Situacao, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> linhas
+<span class="kw">FROM</span> dbo.LogImportacaoCarteirinha
+<span class="kw">WHERE</span> LoteID = @LoteID
+<span class="kw">GROUP BY</span> Situacao;
+
+<span class="cmt">-- Linhas que pedem atenção do usuário</span>
+<span class="kw">SELECT</span> NumeroCarteirinha, IndividuoID, Mensagem
+<span class="kw">FROM</span> dbo.LogImportacaoCarteirinha
+<span class="kw">WHERE</span> LoteID = @LoteID
+  <span class="kw">AND</span> Situacao <span class="kw">IN</span> (<span class="str">'RECUSADA'</span>, <span class="str">'JA_CADASTRADA'</span>)
+<span class="kw">ORDER BY</span> ImportacaoID;</code></pre>
+      </div>
+    </div>
+    <p>O usuário vê, logo depois de enviar a planilha, quantas carteirinhas entraram, quantas trocaram e quais linhas precisam de correção — com o motivo escrito pelo banco. Ele corrige a planilha e envia de novo, sem abrir chamado para o DBA.</p>
+
+    <h2>Resultado</h2>
+    <p>As carteirinhas passaram a ser importadas pela aplicação, pelo próprio usuário. Quando havia algum ponto de atenção — carteirinha de outro indivíduo, indivíduo inexistente, número repetido —, o banco gerava o log e a aplicação informava o usuário final.</p>
+    <p>O DBA saiu do caminho da rotina e as regras ficaram num lugar só: no banco, valendo para qualquer forma de entrada. Cada carteirinha passou a ter data de importação, cada troca deixou a anterior registrada como inativa, e cada linha recusada ficou com o motivo guardado.</p>
+
+    <h2>Checklist para um caso parecido</h2>
+    <ul>
+      <li>Cada situação possível de uma linha listada, com a decisão e a mensagem combinadas com o negócio.</li>
+      <li>Área de importação separada do cadastro oficial.</li>
+      <li>Regras essenciais garantidas por índice único, não só pelo gatilho.</li>
+      <li>Gatilho escrito para várias linhas por comando, sem variáveis que guardam uma linha só.</li>
+      <li>Regras testadas da mais grave para a mais simples.</li>
+      <li>Registro anterior desativado antes de inserir o novo, sem apagar o histórico.</li>
+      <li>Data da importação e lote gravados em cada carteirinha.</li>
+      <li>Log com situação e motivo para cada linha da planilha.</li>
+      <li>Planilha gravada pela aplicação em um único comando.</li>
+      <li>Teste com uma linha para cada regra antes de liberar a tela.</li>
+    </ul>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>© 2026 Daniele de Lima Matos</p>
+      <nav class="footer-links" aria-label="Contato">
+        <a href="https://www.linkedin.com/in/matosdaniele/" rel="noopener noreferrer">LinkedIn</a>
+        <a href="mailto:matos.daniele@gmail.com">matos.daniele@gmail.com</a>
+        <a href="https://github.com/matosdaniele" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="../../assets/js/site.js" defer></script>
+</body>
+</html>

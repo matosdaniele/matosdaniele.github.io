@@ -37,7 +37,7 @@
           <li>Modelo de recuperação — <em>full</em>, <em>simple</em> e <em>bulk-logged</em>, e o que cada um faz com o log de transações.</li>
           <li>Backup e restore — completo, diferencial e de log, e a restauração para um ponto no tempo.</li>
           <li>Integridade e rotina — <code>DBCC CHECKDB</code>, jobs do SQL Server Agent e alertas que avisam antes do problema.</li>
-          <li>Migração — unir, separar e mover bases em produção, com ensaio e conferência.</li>
+          <li>Migração e carga — unir, separar e mover bases em produção e importar dados de clientes, com validação, ensaio e conferência.</li>
         </ol>
       </section>
       <section class="coming">
@@ -46,6 +46,10 @@
           <li>
             <a href="backup-recuperacao-e-migracao/unificar-bases-chaves-iguais.html">Unificar duas bases em produção com chaves iguais</a>
             <p>Caso real em Problema, Ação e Resultado: unir em 15 dias duas bases com chaves repetidas, sem perda de dados.</p>
+          </li>
+          <li>
+            <a href="backup-recuperacao-e-migracao/importar-carteirinhas-com-validacao.html">Importar carteirinhas pela aplicação, com validação no banco</a>
+            <p>Caso real em Problema, Ação e Resultado: tirar a carga da planilha das mãos do DBA, com trigger que valida cada linha e log para a aplicação.</p>
           </li>
         </ol>
       </section>
